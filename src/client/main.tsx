@@ -168,6 +168,17 @@ function App() {
         console.info(
           `[MIDI] run saved: ${data.hardFaultCount ?? 0} wrong notes, ${events.length} raw events`
         )
+        console.table(
+          events.map((event) => ({
+            sequence: event.sequenceNumber,
+            event: event.type,
+            note: readableMidiNote(event.midiPitch),
+            offset: `${event.offsetUs >= 0 ? '+' : ''}${(event.offsetUs / 1000).toFixed(1)}ms`,
+            timestamp: new Date(
+              performance.timeOrigin + firstExpectedBeat + event.offsetUs / 1000
+            ).toLocaleTimeString()
+          }))
+        )
       },
       (countInBeats + exercise.steps.length) * beatMs
     )
