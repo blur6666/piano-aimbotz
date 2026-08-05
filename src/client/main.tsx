@@ -37,7 +37,7 @@ function App() {
   const [selectedInput, setSelectedInput] = useState('')
   const [status, setStatus] = useState('Choose a MIDI input to begin.')
   const [running, setRunning] = useState(false)
-  const [beat, setBeat] = useState<number | null>(null)
+  const [beat, setBeat] = useState<string | null>(null)
   const [faults, setFaults] = useState<number | null>(null)
   const access = useRef<MidiAccess | null>(null)
 
@@ -87,7 +87,7 @@ function App() {
       const oscillator = audio.createOscillator()
       const gain = audio.createGain()
       oscillator.frequency.value = accent ? 880 : 660
-      gain.gain.setValueAtTime(0.12, when)
+      gain.gain.setValueAtTime(accent ? 0.35 : 0.25, when)
       gain.gain.exponentialRampToValueAtTime(0.001, when + 0.08)
       oscillator.connect(gain).connect(audio.destination)
       oscillator.start(when)
@@ -126,11 +126,17 @@ function App() {
     ) {
       const when = audio.currentTime + (index * beatMs) / 1000
       click(when, index % 4 === 0)
-      window.setTimeout(
-        () =>
-          setBeat(index < countInBeats ? index + 1 : index - countInBeats + 1),
-        index * beatMs
-      )
+      window.setTimeout(() => {
+        if (index < countInBeats) {
+          setBeat(`Count-in: ${index + 1}/4`)
+        } else if (index < countInBeats + exercise.steps.length) {
+          const scaleBeat = index - countInBeats
+          const bar = Math.floor(scaleBeat / 4) + 1
+          setBeat(`Scale ${bar}: ${(scaleBeat % 4) + 1}/4`)
+        } else {
+          setBeat('Finishing')
+        }
+      }, index * beatMs)
     }
     window.setTimeout(
       async () => {
@@ -207,12 +213,7 @@ function App() {
         <p className="status" aria-live="polite">
           {status}
         </p>
-        {running && (
-          <div className="count">
-            {beat !== null &&
-              (beat <= 4 ? `Count-in ${beat}/4` : `Beat ${beat - 4}/8`)}
-          </div>
-        )}
+        {running && beat !== null && <div className="count">{beat}</div>}
         <div className="notes">
           {exercise?.steps.map((step, index) => (
             <div className="note" key={index}>
