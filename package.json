@@ -5,6 +5,7 @@
   "main": "dist/src/server/index.js",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server/index.ts",
+    "dev:client": "vite",
     "build": "tsc -b && vite build",
     "start": "npm run build && node --env-file=.env dist/src/server/index.js",
     "typecheck": "tsc --noEmit",
