@@ -33,19 +33,22 @@ function App() {
   }, [])
 
   async function chooseMidi() {
-    const requestMidi = navigator.requestMIDIAccess
-    if (!requestMidi)
+    if (!navigator.requestMIDIAccess)
       return setStatus(
         'Web MIDI is unavailable. Use desktop Chrome or Edge over localhost/HTTPS.'
       )
-    const midi = await requestMidi()
-    access.current = midi
-    const available = [...midi.inputs.values()]
-    setInputs(available)
-    if (available.length > 0) {
-      setSelectedInput(available[0].id)
-      setStatus('Input ready. Press Start when you are ready.')
-    } else setStatus('No MIDI inputs found.')
+    try {
+      const midi = await navigator.requestMIDIAccess({ sysex: false })
+      access.current = midi
+      const available = [...midi.inputs.values()]
+      setInputs(available)
+      if (available.length > 0) {
+        setSelectedInput(available[0].id)
+        setStatus('Input ready. Press Start when you are ready.')
+      } else setStatus('No MIDI inputs found.')
+    } catch {
+      setStatus('MIDI permission was denied or the device is unavailable.')
+    }
   }
 
   async function startRun() {
