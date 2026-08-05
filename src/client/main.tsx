@@ -174,9 +174,9 @@ function App() {
             event: event.type,
             note: readableMidiNote(event.midiPitch),
             offset: `${event.offsetUs >= 0 ? '+' : ''}${(event.offsetUs / 1000).toFixed(1)}ms`,
-            timestamp: new Date(
+            timestampUtc: new Date(
               performance.timeOrigin + firstExpectedBeat + event.offsetUs / 1000
-            ).toLocaleTimeString()
+            ).toISOString()
           }))
         )
       },
