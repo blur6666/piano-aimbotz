@@ -6,12 +6,12 @@ It is validated by `src/domain/catalog` before `npm run seed` inserts it.
 
 ## Provenance
 
-Primary source: `tmp-fingering-reference-for-major-scales.png`, a piano
+Primary source: `fingering-reference-pianoscales-org.png`, a piano
 fingering table attributed to pianoscales.org — SPEC.md's declared
 "fingering data source of record".
 
 Cross-checked against an independent source,
-`major-minor-scales-fingerings.tsv` (repo root).
+`major-minor-scales-fingerings.tsv`.
 
 Group 1 (C, G, D, A, E, B — shared 1-2-3-1-2-3-4-5 pattern) and Group 2 (F)
 match both sources exactly, and match SPEC.md's explicit tables.

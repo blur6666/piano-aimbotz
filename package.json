@@ -16,7 +16,8 @@
     "rebuild-progress": "tsx --env-file-if-exists=.env src/server/progress/rebuild.ts",
     "backfill-assessments": "tsx --env-file-if-exists=.env src/server/db/backfill-assessments.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,ts,html}\" \".github/**/*.yml\"",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "try": "npm run migrate && npm run seed && npm run start"
   },
   "keywords": [
     "piano",

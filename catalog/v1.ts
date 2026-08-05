@@ -2,7 +2,7 @@
 // 24 exercises (ascending + descending per scale), 8 steps each. Right
 // hand only -- v1 scope per SPEC.md.
 //
-// Provenance: primary source is `tmp-fingering-reference-for-major-scales.png`,
+// Provenance: primary source is `fingering-reference-pianoscales-org.png`,
 // a piano fingering table attributed to pianoscales.org -- SPEC.md's
 // declared "fingering data source of record". Cross-checked against the
 // independent `major-minor-scales-fingerings.tsv`. Group 1 (C, G, D, A, E,

@@ -120,10 +120,25 @@ describe('runExercise submission', () => {
   const submitResponse: SubmitRunResponse = {
     run: { id: 1, exerciseId: 7, firstExpectedBeatAtMs: 0, tempoBpm: 60 },
     originalAssessment: {
+      steps: Array.from({ length: 8 }, (_, stepIndex) => ({
+        stepIndex,
+        expectedMidiPitch: 60 + stepIndex,
+        matchedEventSequenceNumber: stepIndex,
+        hardFaultCount: 0,
+        missed: false,
+        timingDeviationUs: 0,
+        timingExcluded: false,
+        timingFault: false,
+        overlapFault: false
+      })),
+      faults: [],
       summary: {
         hardFaultCount: 0,
         timingFaultCount: 0,
         overlapFaultCount: 0,
+        timingSampleCount: 8,
+        timingExcludedCount: 0,
+        meanAbsoluteTimingDeviationUs: 0,
         passed: true
       }
     },

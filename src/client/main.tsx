@@ -5,16 +5,35 @@ import { fetchExercises, type SelectableExercise } from './api/exercises.js'
 import {
   fetchRunDetail,
   fetchRunHistory,
+  type AssessmentStep,
   type RunDetail,
   type RunHistoryEntry
 } from './api/runs.js'
 import { requestMidiInputs } from './midi/access.js'
-import { runExercise } from './practice/runExercise.js'
+import { createKeyboardInput } from './midi/keyboardInput.js'
+import { runExercise, type RunSchedule } from './practice/runExercise.js'
+import { Timeline, type LiveNote } from './practice/Timeline.js'
+import { Keyboard } from './practice/Keyboard.js'
+import { pitchClassesForNoteSpellings } from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
   if (deviationUs === null) return '—'
   return `${(deviationUs / 1000).toFixed(1)} ms`
 }
+
+// Scope trimmed to the three easiest scales for now (BACKLOG.md); the rest
+// of the seeded catalog is unaffected, just hidden from this dropdown.
+const VISIBLE_SCALE_SLUGS = new Set(['c-major', 'f-major', 'g-major'])
+
+// Remembers the selected MIDI input across reloads (BACKLOG.md). Once a
+// browser has granted Web MIDI permission to this origin, later
+// requestMIDIAccess() calls resolve without re-prompting, so the effect
+// below can silently reconnect on mount rather than waiting for a click.
+const MIDI_INPUT_STORAGE_KEY = 'piano-aimbotz:selectedMidiInputId'
+
+// Selectable alongside real MIDI inputs (BACKLOG.md): lets anyone without
+// hardware still play a run via src/client/midi/keyboardInput.ts.
+const COMPUTER_KEYBOARD_INPUT_ID = '__computer-keyboard__'
 
 function App() {
   const [exercises, setExercises] = useState<SelectableExercise[]>([])
@@ -22,17 +41,30 @@ function App() {
     null
   )
   const [inputs, setInputs] = useState<MIDIInput[]>([])
-  const [selectedInput, setSelectedInput] = useState('')
+  const [selectedRealInputId, setSelectedRealInputId] = useState('')
+  const [useComputerKeyboard, setUseComputerKeyboard] = useState(false)
   const [status, setStatus] = useState('Choose a MIDI input to begin.')
   const [running, setRunning] = useState(false)
   const [beat, setBeat] = useState<string | null>(null)
   const [faults, setFaults] = useState<number | null>(null)
   const [history, setHistory] = useState<RunHistoryEntry[]>([])
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null)
+  const [runSchedule, setRunSchedule] = useState<RunSchedule | null>(null)
+  const [liveNotes, setLiveNotes] = useState<LiveNote[]>([])
+  const [finalSteps, setFinalSteps] = useState<AssessmentStep[] | null>(null)
+  const [showKeyboardDuringTest, setShowKeyboardDuringTest] = useState(true)
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [practiceTempoBpm, setPracticeTempoBpm] = useState(60)
   const inputsRef = useRef<MIDIInput[]>([])
 
   const exercise =
     exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
+  const visibleExercises = exercises.filter((candidate) =>
+    VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug)
+  )
+  const activeInputId = useComputerKeyboard
+    ? COMPUTER_KEYBOARD_INPUT_ID
+    : selectedRealInputId
 
   const loadHistory = useCallback((exerciseId: number) => {
     fetchRunHistory(exerciseId)
@@ -47,7 +79,10 @@ function App() {
     fetchExercises()
       .then((loaded) => {
         setExercises(loaded)
-        if (loaded.length > 0) setSelectedExerciseId(loaded[0].id)
+        const visible = loaded.filter((candidate) =>
+          VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug)
+        )
+        if (visible.length > 0) setSelectedExerciseId(visible[0].id)
       })
       .catch((error: Error) => setStatus(error.message))
   }, [])
@@ -61,18 +96,42 @@ function App() {
     loadHistory(selectedExerciseId)
   }, [selectedExerciseId, loadHistory])
 
+  const applyAvailableInputs = useCallback((available: MIDIInput[]) => {
+    inputsRef.current = available
+    setInputs(available)
+    if (available.length === 0) {
+      setStatus('No MIDI inputs found.')
+      return
+    }
+    const savedId = localStorage.getItem(MIDI_INPUT_STORAGE_KEY)
+    const restored = available.find((input) => input.id === savedId)
+    const chosen = restored ?? available[0]
+    setSelectedRealInputId(chosen.id)
+    setStatus(
+      restored
+        ? 'Input reconnected. Press Start when you are ready.'
+        : 'Input ready. Press Start when you are ready.'
+    )
+    console.info(`[MIDI] connected: ${chosen.name ?? chosen.id}`)
+  }, [])
+
+  // Best-effort silent reconnect: if this origin already has Web MIDI
+  // permission from a previous visit, this resolves without prompting. If
+  // it fails (first visit, denied, unsupported), stay quiet -- the
+  // Connect MIDI button is the explicit first-time path and does surface
+  // errors.
+  useEffect(() => {
+    requestMidiInputs().then(applyAvailableInputs).catch(() => {})
+  }, [applyAvailableInputs])
+
+  useEffect(() => {
+    if (selectedRealInputId)
+      localStorage.setItem(MIDI_INPUT_STORAGE_KEY, selectedRealInputId)
+  }, [selectedRealInputId])
+
   async function chooseMidi() {
     try {
-      const available = await requestMidiInputs()
-      inputsRef.current = available
-      setInputs(available)
-      if (available.length > 0) {
-        setSelectedInput(available[0].id)
-        setStatus('Input ready. Press Start when you are ready.')
-        console.info(
-          `[MIDI] connected: ${available[0].name ?? available[0].id}`
-        )
-      } else setStatus('No MIDI inputs found.')
+      applyAvailableInputs(await requestMidiInputs())
     } catch (error) {
       setStatus(
         error instanceof Error
@@ -80,6 +139,17 @@ function App() {
           : 'MIDI permission was denied or the device is unavailable.'
       )
     }
+  }
+
+  function toggleComputerKeyboard(enabled: boolean) {
+    setUseComputerKeyboard(enabled)
+    setStatus(
+      enabled
+        ? 'Using computer keyboard. Press Start when you are ready.'
+        : selectedRealInputId
+          ? 'Input ready. Press Start when you are ready.'
+          : 'No MIDI inputs found.'
+    )
   }
 
   async function openRunDetail(runId: number) {
@@ -92,29 +162,63 @@ function App() {
     }
   }
 
+  function togglePracticeMode(enabled: boolean) {
+    setPracticeMode(enabled)
+    if (enabled && exercise) setPracticeTempoBpm(exercise.currentTempoBpm)
+  }
+
   async function startRun() {
-    if (!exercise || !selectedInput) return
-    const input = inputsRef.current.find(
-      (candidate) => candidate.id === selectedInput
-    )
-    if (!input) return
+    if (!exercise || !activeInputId) return
+    let input: MIDIInput
+    let disposeKeyboardInput: (() => void) | null = null
+    if (useComputerKeyboard) {
+      const keyboard = createKeyboardInput()
+      input = keyboard.input as unknown as MIDIInput
+      disposeKeyboardInput = keyboard.dispose
+    } else {
+      const found = inputsRef.current.find(
+        (candidate) => candidate.id === activeInputId
+      )
+      if (!found) return
+      input = found
+    }
+    const tempoBpm = practiceMode ? practiceTempoBpm : exercise.currentTempoBpm
     setFaults(null)
     setRunning(true)
-    setStatus('Count-in')
+    setStatus(practiceMode ? 'Count-in (practice, not saved)' : 'Count-in')
+    setRunSchedule(null)
+    setLiveNotes([])
+    setFinalSteps(null)
     console.info(
-      `[MIDI] run started: ${exercise.label} at ${exercise.currentTempoBpm} BPM`
+      `[MIDI] run started: ${exercise.label} at ${tempoBpm} BPM${practiceMode ? ' (practice mode)' : ''}`
     )
     try {
       const result = await runExercise(
         input,
         {
           id: exercise.id,
-          tempoBpm: exercise.currentTempoBpm,
+          tempoBpm,
           steps: exercise.steps
         },
-        setBeat
+        setBeat,
+        {
+          onScheduled: setRunSchedule,
+          onLiveNote: (event) => {
+            if (event.type !== 'note_on') return
+            setLiveNotes((current) => [
+              ...current,
+              { midiPitch: event.midiPitch, offsetUs: event.offsetUs }
+            ])
+          },
+          skipSubmit: practiceMode
+        }
       )
       setRunning(false)
+      if (result === null) {
+        setStatus(`Practice run complete at ${tempoBpm} BPM. Not saved.`)
+        return
+      }
+      setFinalSteps(result.originalAssessment.steps)
       const hardFaultCount = result.originalAssessment.summary.hardFaultCount
       setFaults(hardFaultCount)
       setStatus(
@@ -140,6 +244,8 @@ function App() {
       setStatus(
         error instanceof Error ? error.message : 'Could not save the run.'
       )
+    } finally {
+      disposeKeyboardInput?.()
     }
   }
 
@@ -152,6 +258,47 @@ function App() {
           Eight notes. One steady click. Raw performance captured as you play.
         </p>
       </header>
+      <section className="panel setup">
+        <div className="toolbar">
+          <button onClick={chooseMidi} disabled={running}>
+            Connect MIDI
+          </button>
+          <select
+            value={selectedRealInputId}
+            onChange={(event) => setSelectedRealInputId(event.target.value)}
+            disabled={running || useComputerKeyboard}
+          >
+            {inputs.length === 0 && (
+              <option value="">No MIDI input connected</option>
+            )}
+            {inputs.map((input) => (
+              <option key={input.id} value={input.id}>
+                {input.name ?? input.id}
+              </option>
+            ))}
+          </select>
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={useComputerKeyboard}
+              disabled={running}
+              onChange={(event) =>
+                toggleComputerKeyboard(event.target.checked)
+              }
+            />
+            Use computer keyboard as input
+          </label>
+          <p className="status" aria-live="polite">
+            {status}
+          </p>
+        </div>
+        {useComputerKeyboard && (
+          <p className="intro keyboard-hint">
+            A S D F G H J K = white keys (C D E F G A B C). W E T Y U = black
+            keys, on the row above.
+          </p>
+        )}
+      </section>
       <section className="panel">
         <div className="toolbar">
           <select
@@ -159,33 +306,14 @@ function App() {
             onChange={(event) =>
               setSelectedExerciseId(Number(event.target.value))
             }
-            disabled={running || exercises.length === 0}
+            disabled={running || visibleExercises.length === 0}
           >
-            {exercises.length === 0 ? (
+            {visibleExercises.length === 0 ? (
               <option value="">No exercise seeded</option>
             ) : (
-              exercises.map((candidate) => (
+              visibleExercises.map((candidate) => (
                 <option key={candidate.id} value={candidate.id}>
-                  {candidate.label} — {candidate.currentTempoBpm} BPM, streak{' '}
-                  {candidate.consecutiveCleanRuns}/3
-                </option>
-              ))
-            )}
-          </select>
-          <button onClick={chooseMidi} disabled={running}>
-            Connect MIDI
-          </button>
-          <select
-            value={selectedInput}
-            onChange={(event) => setSelectedInput(event.target.value)}
-            disabled={running || inputs.length === 0}
-          >
-            {inputs.length === 0 ? (
-              <option value="">No input selected</option>
-            ) : (
-              inputs.map((input) => (
-                <option key={input.id} value={input.id}>
-                  {input.name ?? input.id}
+                  {candidate.label}
                 </option>
               ))
             )}
@@ -193,15 +321,84 @@ function App() {
           <button
             className="primary"
             onClick={startRun}
-            disabled={running || !selectedInput || !exercise}
+            disabled={running || !activeInputId || !exercise}
           >
             Start run
           </button>
+          <div className="stats-row">
+            <div className="stat">
+              <strong>{exercise?.currentTempoBpm ?? '—'}</strong>
+              <span>Current max BPM</span>
+            </div>
+            <div className="stat">
+              <strong>{exercise?.consecutiveCleanRuns ?? 0}/3</strong>
+              <span>Streak</span>
+            </div>
+            <div className="stat stat-practice">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={practiceMode}
+                  disabled={running}
+                  onChange={(event) =>
+                    togglePracticeMode(event.target.checked)
+                  }
+                />
+                Unlocked BPM (testing)
+              </label>
+              {practiceMode && (
+                <input
+                  type="number"
+                  min={20}
+                  max={300}
+                  value={practiceTempoBpm}
+                  disabled={running}
+                  onChange={(event) =>
+                    setPracticeTempoBpm(Number(event.target.value))
+                  }
+                />
+              )}
+            </div>
+          </div>
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={showKeyboardDuringTest}
+              onChange={(event) =>
+                setShowKeyboardDuringTest(event.target.checked)
+              }
+            />
+            Show keyboard during test
+          </label>
         </div>
-        <p className="status" aria-live="polite">
-          {status}
-        </p>
+        {practiceMode && (
+          <p className="intro">
+            Practice mode: runs at the tempo above without saving progress or
+            history. The server's tempo lock (ARCHITECTURE.md) is never
+            bypassed -- practice runs simply aren't submitted.
+          </p>
+        )}
         {running && beat !== null && <div className="count">{beat}</div>}
+        {exercise && (running || finalSteps !== null) && (
+          <Timeline
+            steps={exercise.steps}
+            beatMs={
+              runSchedule?.beatMs ??
+              60_000 / (practiceMode ? practiceTempoBpm : exercise.currentTempoBpm)
+            }
+            running={running}
+            firstExpectedBeat={runSchedule?.firstExpectedBeat ?? null}
+            liveNotes={liveNotes}
+            finalSteps={finalSteps}
+          />
+        )}
+        {exercise && (!running || showKeyboardDuringTest) && (
+          <Keyboard
+            highlightedPitchClasses={pitchClassesForNoteSpellings(
+              exercise.steps.map((step) => step.noteSpelling)
+            )}
+          />
+        )}
         <div className="notes">
           {exercise?.steps.map((step, index) => (
             <div className="note" key={index}>
@@ -272,17 +469,6 @@ function App() {
             </h3>
             <p className="intro">
               Failed-run behavior applied to this run:{' '}
-              {
-                runDetail.originalAssessment.progressionParameters
-                  .failedRunBehavior
-              }
-              {runDetail.originalAssessment.progressionParameters
-                .failedRunBehavior === 'step_down'
-                ? ` (−${runDetail.originalAssessment.progressionParameters.tempoDecrementBpm} BPM, minimum ${runDetail.originalAssessment.progressionParameters.minimumTempoBpm} BPM)`
-                : ''}
-            </p>
-            <p className="intro">
-              Failed-run behavior for this run:{' '}
               {
                 runDetail.originalAssessment.progressionParameters
                   .failedRunBehavior

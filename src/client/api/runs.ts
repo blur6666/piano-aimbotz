@@ -1,5 +1,23 @@
 import type { SubmitRun } from '../../shared/contracts.js'
 
+export type AssessmentStep = {
+  stepIndex: number
+  expectedMidiPitch: number | null
+  matchedEventSequenceNumber: number | null
+  hardFaultCount: number
+  missed: boolean
+  timingDeviationUs: number | null
+  timingExcluded: boolean
+  timingFault: boolean
+  overlapFault: boolean
+}
+
+export type AssessmentFault = {
+  type: 'wrong_pitch' | 'duplicate' | 'missed' | 'extra'
+  stepIndex: number
+  eventSequenceNumber: number | null
+}
+
 export type SubmitRunResponse = {
   run: {
     id: number
@@ -8,10 +26,15 @@ export type SubmitRunResponse = {
     tempoBpm: number
   }
   originalAssessment: {
+    steps: AssessmentStep[]
+    faults: AssessmentFault[]
     summary: {
       hardFaultCount: number
       timingFaultCount: number
       overlapFaultCount: number
+      timingSampleCount: number
+      timingExcludedCount: number
+      meanAbsoluteTimingDeviationUs: number | null
       passed: boolean
     }
   }
@@ -69,22 +92,8 @@ export type RunDetail = {
   }
   currentAssessment: {
     algorithmVersion: string
-    steps: Array<{
-      stepIndex: number
-      expectedMidiPitch: number | null
-      matchedEventSequenceNumber: number | null
-      hardFaultCount: number
-      missed: boolean
-      timingDeviationUs: number | null
-      timingExcluded: boolean
-      timingFault: boolean
-      overlapFault: boolean
-    }>
-    faults: Array<{
-      type: 'wrong_pitch' | 'duplicate' | 'missed' | 'extra'
-      stepIndex: number
-      eventSequenceNumber: number | null
-    }>
+    steps: AssessmentStep[]
+    faults: AssessmentFault[]
     summary: RunHistoryEntry['originalAssessment']
   }
 }
