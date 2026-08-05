@@ -90,8 +90,11 @@ export function buildApp(sqlite = openSqlite()): FastifyInstance {
           'SELECT semitone_offset FROM exercise_steps WHERE exercise_id = ? ORDER BY step_index'
         )
         .all(exercise.id) as Array<{ semitone_offset: number }>
-      const expected = steps.map((step) => 60 + step.semitone_offset)
-      const hardFaultCount = countHardFaults(expected, body.events)
+      const hardFaultCount = countHardFaults(
+        exercise.tonic_pitch_class,
+        steps.map((step) => step.semitone_offset),
+        body.events
+      )
       const transaction = sqlite.transaction(() => {
         const result = sqlite
           .prepare(
