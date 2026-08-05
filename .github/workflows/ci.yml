@@ -7,6 +7,16 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_PATH: ${{ github.workspace }}/ci.db
+      SCORING_TIMING_TOLERANCE_US: '50000'
+      SCORING_OVERLAP_TOLERANCE_US: '0'
+      SCORING_MAX_TIMING_FAULTS_PER_RUN: '0'
+      SCORING_MAX_OVERLAP_FAULTS_PER_RUN: '0'
+      SCORING_RECOVERY_WINDOW_STEPS: '1'
+      PROGRESSION_TEMPO_INCREMENT_BPM: '4'
+      PROGRESSION_FAILED_RUN_BEHAVIOR: 'reset_streak'
+      SEED_INITIAL_TEMPO_BPM: '60'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,5 +24,10 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run migrate
+      - run: npm run seed
+      - run: npm run test:coverage
+      - run: npm run build
