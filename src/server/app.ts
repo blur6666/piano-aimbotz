@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 import fastifyStatic from '@fastify/static'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,6 +13,24 @@ export function buildApp(
   config: AppConfig = loadConfig()
 ): FastifyInstance {
   const app = Fastify({ logger: false })
+
+  // All API errors use one envelope (ARCHITECTURE.md). Routes that already
+  // know their status code (404/409/400 for bad sequence numbers, etc.)
+  // send it directly; this is the catch-all for TypeBox validation
+  // failures and anything else thrown unexpectedly. Non-validation errors
+  // never expose their message -- it could contain SQL or stack details.
+  app.setErrorHandler((error: FastifyError, _request, reply) => {
+    if (error.validation)
+      return reply
+        .code(400)
+        .send({ error: { code: 'invalid_request', message: error.message } })
+    return reply.code(500).send({
+      error: {
+        code: 'internal_error',
+        message: 'An unexpected error occurred.'
+      }
+    })
+  })
 
   registerExerciseRoutes(app, sqlite)
   registerRunRoutes(app, sqlite, config)

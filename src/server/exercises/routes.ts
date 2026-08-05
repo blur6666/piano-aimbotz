@@ -25,30 +25,32 @@ export function registerExerciseRoutes(
   sqlite: Database.Database
 ): void {
   app.get('/api/exercises', async (_request, reply) => {
-    const exercise = sqlite
+    const exercises = sqlite
       .prepare('SELECT * FROM exercises ORDER BY id')
-      .get() as ExerciseRow | undefined
-    if (!exercise)
+      .all() as ExerciseRow[]
+    if (exercises.length === 0)
       return reply.code(503).send({
         error: { code: 'not_seeded', message: 'Run npm run seed first.' }
       })
-    const progress = sqlite
-      .prepare(
-        'SELECT current_tempo_bpm, consecutive_clean_runs FROM exercise_progress WHERE exercise_id = ?'
-      )
-      .get(exercise.id) as ProgressRow | undefined
-    if (!progress)
-      return reply.code(503).send({
-        error: { code: 'not_seeded', message: 'Run npm run seed first.' }
-      })
-    const steps = sqlite
-      .prepare(
-        'SELECT step_index, note_spelling, finger_number FROM exercise_steps WHERE exercise_id = ? ORDER BY step_index'
-      )
-      .all(exercise.id) as StepRow[]
+    const selectProgress = sqlite.prepare(
+      'SELECT current_tempo_bpm, consecutive_clean_runs FROM exercise_progress WHERE exercise_id = ?'
+    )
+    const selectSteps = sqlite.prepare(
+      'SELECT step_index, note_spelling, finger_number FROM exercise_steps WHERE exercise_id = ? ORDER BY step_index'
+    )
     return {
-      exercises: [
-        {
+      exercises: exercises.map((exercise) => {
+        const progress = selectProgress.get(exercise.id) as
+          ProgressRow | undefined
+        // Every seeded exercise gets a progress row in the same
+        // transaction (ARCHITECTURE.md); a missing one is a genuine
+        // data-integrity bug, not a "not seeded yet" state to hide.
+        if (!progress)
+          throw new Error(
+            `Missing exercise_progress row for exercise ${exercise.id}`
+          )
+        const steps = selectSteps.all(exercise.id) as StepRow[]
+        return {
           id: exercise.id,
           name: exercise.name,
           direction: exercise.direction,
@@ -60,7 +62,7 @@ export function registerExerciseRoutes(
             fingerNumber: step.finger_number
           }))
         }
-      ]
+      })
     }
   })
 }
