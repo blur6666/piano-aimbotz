@@ -1,65 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import type { MidiEvent, SubmitRun } from '../shared/contracts.js'
 import './styles.css'
-
-type Exercise = {
-  id: number
-  name: string
-  tempoBpm: number
-  steps: Array<{ noteSpelling: string; fingerNumber: number }>
-}
-type MidiInput = MIDIInput
-type MidiAccess = MIDIAccess
-
-const noteNames = [
-  'C',
-  'C#',
-  'D',
-  'D#',
-  'E',
-  'F',
-  'F#',
-  'G',
-  'G#',
-  'A',
-  'A#',
-  'B'
-]
-
-function readableMidiNote(pitch: number): string {
-  return `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1} (${pitch})`
-}
+import { fetchExercises, type ExerciseSummary } from './api/exercises.js'
+import { requestMidiInputs } from './midi/access.js'
+import { runExercise } from './practice/runExercise.js'
 
 function App() {
-  const [exercise, setExercise] = useState<Exercise | null>(null)
-  const [inputs, setInputs] = useState<MidiInput[]>([])
+  const [exercise, setExercise] = useState<ExerciseSummary | null>(null)
+  const [inputs, setInputs] = useState<MIDIInput[]>([])
   const [selectedInput, setSelectedInput] = useState('')
   const [status, setStatus] = useState('Choose a MIDI input to begin.')
   const [running, setRunning] = useState(false)
   const [beat, setBeat] = useState<string | null>(null)
   const [faults, setFaults] = useState<number | null>(null)
-  const access = useRef<MidiAccess | null>(null)
+  const inputsRef = useRef<MIDIInput[]>([])
 
   useEffect(() => {
-    fetch('/api/exercises')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('The exercise catalog is not seeded.')
-        const data = (await response.json()) as { exercises: Exercise[] }
-        setExercise(data.exercises[0])
-      })
+    fetchExercises()
+      .then((exercises) => setExercise(exercises[0]))
       .catch((error: Error) => setStatus(error.message))
   }, [])
 
   async function chooseMidi() {
-    if (!navigator.requestMIDIAccess)
-      return setStatus(
-        'Web MIDI is unavailable. Use desktop Chrome or Edge over localhost/HTTPS.'
-      )
     try {
-      const midi = await navigator.requestMIDIAccess({ sysex: false })
-      access.current = midi
-      const available = [...midi.inputs.values()]
+      const available = await requestMidiInputs()
+      inputsRef.current = available
       setInputs(available)
       if (available.length > 0) {
         setSelectedInput(available[0].id)
@@ -68,126 +33,63 @@ function App() {
           `[MIDI] connected: ${available[0].name ?? available[0].id}`
         )
       } else setStatus('No MIDI inputs found.')
-    } catch {
-      setStatus('MIDI permission was denied or the device is unavailable.')
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : 'MIDI permission was denied or the device is unavailable.'
+      )
     }
   }
 
   async function startRun() {
     if (!exercise || !selectedInput) return
-    const input = inputs.find((candidate) => candidate.id === selectedInput)
+    const input = inputsRef.current.find(
+      (candidate) => candidate.id === selectedInput
+    )
     if (!input) return
-    const events: MidiEvent[] = []
-    const beatMs = 60_000 / exercise.tempoBpm
-    const countInBeats = 4
-    const firstExpectedBeat = performance.now() + countInBeats * beatMs
-    let sequence = 0
-    const audio = new AudioContext()
-    const click = (when: number, accent: boolean) => {
-      const oscillator = audio.createOscillator()
-      const gain = audio.createGain()
-      oscillator.frequency.value = accent ? 880 : 660
-      gain.gain.setValueAtTime(accent ? 0.35 : 0.25, when)
-      gain.gain.exponentialRampToValueAtTime(0.001, when + 0.08)
-      oscillator.connect(gain).connect(audio.destination)
-      oscillator.start(when)
-      oscillator.stop(when + 0.09)
-    }
-    input.onmidimessage = (message) => {
-      if (!message.data) return
-      const [statusByte, pitch, velocity] = Array.from(message.data)
-      const command = statusByte & 0xf0
-      if (command !== 0x90 && command !== 0x80) return
-      const type = command === 0x90 && velocity !== 0 ? 'note_on' : 'note_off'
-      const offsetUs = Math.round(
-        (message.timeStamp - firstExpectedBeat) * 1000
-      )
-      events.push({
-        sequenceNumber: sequence++,
-        offsetUs,
-        type,
-        midiPitch: pitch,
-        velocity
-      })
-      console.debug(
-        `[MIDI] ${type === 'note_on' ? 'note-on ' : 'note-off '}${readableMidiNote(pitch)} velocity=${velocity} offset=${(offsetUs / 1000).toFixed(1)}ms`
-      )
-    }
     setFaults(null)
     setRunning(true)
     setStatus('Count-in')
     console.info(
-      `[MIDI] run started: ${exercise.name} at ${exercise.tempoBpm} BPM`
+      `[MIDI] run started: ${exercise.name} at ${exercise.currentTempoBpm} BPM`
     )
-    for (
-      let index = 0;
-      index < countInBeats + exercise.steps.length + 1;
-      index += 1
-    ) {
-      const when = audio.currentTime + (index * beatMs) / 1000
-      click(when, index % 4 === 0)
-      window.setTimeout(() => {
-        if (index < countInBeats) {
-          setBeat(`Count-in: ${index + 1}/4`)
-        } else if (index < countInBeats + exercise.steps.length) {
-          const scaleBeat = index - countInBeats
-          const bar = Math.floor(scaleBeat / 4) + 1
-          setBeat(`Scale ${bar}: ${(scaleBeat % 4) + 1}/4`)
-        } else {
-          setBeat('Finishing')
-        }
-      }, index * beatMs)
+    try {
+      const result = await runExercise(
+        input,
+        {
+          id: exercise.id,
+          tempoBpm: exercise.currentTempoBpm,
+          steps: exercise.steps
+        },
+        setBeat
+      )
+      setRunning(false)
+      const hardFaultCount = result.originalAssessment.summary.hardFaultCount
+      setFaults(hardFaultCount)
+      setStatus(
+        `Run saved. ${hardFaultCount} wrong notes. Tempo ${result.progress.currentTempoBpm} BPM, streak ${result.progress.consecutiveCleanRuns}/3.`
+      )
+      setExercise({
+        ...exercise,
+        currentTempoBpm: result.progress.currentTempoBpm,
+        consecutiveCleanRuns: result.progress.consecutiveCleanRuns
+      })
+      console.info(
+        `[MIDI] run saved: ${hardFaultCount} wrong notes, passed=${result.originalAssessment.summary.passed}`
+      )
+    } catch (error) {
+      setRunning(false)
+      setStatus(
+        error instanceof Error ? error.message : 'Could not save the run.'
+      )
     }
-    window.setTimeout(
-      async () => {
-        input.onmidimessage = null
-        audio.close()
-        setRunning(false)
-        setStatus('Saving run...')
-        const payload: SubmitRun = {
-          exerciseId: exercise.id,
-          firstExpectedBeatAtMs: Math.round(
-            performance.timeOrigin + firstExpectedBeat
-          ),
-          tempoBpm: exercise.tempoBpm,
-          events
-        }
-        const response = await fetch('/api/runs', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        const data = (await response.json()) as {
-          hardFaultCount?: number
-          error?: { message: string }
-        }
-        if (!response.ok)
-          return setStatus(data.error?.message ?? 'Could not save the run.')
-        setFaults(data.hardFaultCount ?? 0)
-        setStatus(`Run saved. ${data.hardFaultCount ?? 0} wrong notes.`)
-        console.info(
-          `[MIDI] run saved: ${data.hardFaultCount ?? 0} wrong notes, ${events.length} raw events`
-        )
-        console.table(
-          events.map((event) => ({
-            sequence: event.sequenceNumber,
-            event: event.type,
-            note: readableMidiNote(event.midiPitch),
-            offset: `${event.offsetUs >= 0 ? '+' : ''}${(event.offsetUs / 1000).toFixed(1)}ms`,
-            timestampUtc: new Date(
-              performance.timeOrigin + firstExpectedBeat + event.offsetUs / 1000
-            ).toISOString()
-          }))
-        )
-      },
-      (countInBeats + exercise.steps.length) * beatMs
-    )
   }
 
   return (
     <main>
       <header>
-        <p className="eyebrow">PRACTICE / STAGE 1</p>
+        <p className="eyebrow">PRACTICE / STAGE 2</p>
         <h1>C major, ascending</h1>
         <p className="intro">
           Eight notes. One steady click. Raw performance captured as you play.

@@ -9,9 +9,12 @@
     "start": "npm run build && node dist/src/server/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "seed": "tsx src/server/db/seed.ts",
     "migrate": "tsx src/server/db/migrate.ts",
+    "rebuild-progress": "tsx src/server/progress/rebuild.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,ts,html}\" \".github/**/*.yml\"",
+    "lint": "eslint .",
     "drizzle:generate": "drizzle-kit generate"
   },
   "keywords": [
@@ -21,6 +24,9 @@
   ],
   "author": "Your Name <you@example.com>",
   "license": "MIT",
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "@fastify/static": "^10.1.2",
     "@sinclair/typebox": "^0.34.52",
@@ -36,11 +42,17 @@
     "tsx": "^4.23.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.66.0",
+    "@typescript-eslint/parser": "^8.66.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.6",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
   }

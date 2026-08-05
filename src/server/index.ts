@@ -1,14 +1,24 @@
 import { buildApp } from './app.js'
 import { openSqlite } from './db/connection.js'
-import fs from 'node:fs'
-import path from 'node:path'
+import { applyMigrations } from './db/apply-migrations.js'
+import {
+  loadConfig,
+  assertMinimumTempoAgainstExistingProgress
+} from './config.js'
 
-const root = process.cwd()
+const config = loadConfig()
 const sqlite = openSqlite()
-sqlite.exec(
-  fs.readFileSync(path.join(root, 'migrations/0001_stage1.sql'), 'utf8')
+applyMigrations(sqlite)
+
+const lowestCurrentTempo = sqlite
+  .prepare('SELECT MIN(current_tempo_bpm) AS lowest FROM exercise_progress')
+  .get() as { lowest: number | null }
+assertMinimumTempoAgainstExistingProgress(
+  config.progression,
+  lowestCurrentTempo.lowest
 )
-const app = buildApp(sqlite)
+
+const app = buildApp(sqlite, config)
 const port = Number(process.env.PORT ?? 3000)
 const host = process.env.HOST ?? '0.0.0.0'
 await app.listen({ host, port })
