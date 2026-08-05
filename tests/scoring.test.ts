@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countHardFaults } from '../src/domain/scoring.js'
+import { countHardFaults, scoreRun } from '../src/domain/scoring.js'
 
 const cMajor = [60, 62, 64, 65, 67, 69, 71, 72]
 const cMajorOffsets = cMajor.map((pitch) => pitch - 60)
@@ -43,5 +43,51 @@ describe('Stage 1 hard faults', () => {
         }))
       )
     ).toBe(0)
+  })
+})
+
+describe('descending exercises', () => {
+  // The `direction` field is not read anywhere inside scoreRun -- matching
+  // is driven entirely by each step's stored semitone offset. This proves
+  // the scorer already handles a descending exercise correctly, even
+  // though nothing in the seed/catalog can create one yet.
+  it('scores a clean descending run with zero hard faults', () => {
+    // C major descending, anchored on the upper C: C B A G F E D C
+    const descendingOffsets = [0, -1, -3, -5, -7, -8, -10, -12]
+    const anchorPitch = 72 // upper C
+    const config = {
+      timingToleranceUs: Number.MAX_SAFE_INTEGER,
+      overlapToleranceUs: Number.MAX_SAFE_INTEGER,
+      maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
+      maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
+      recoveryWindowSteps: 0
+    }
+    const assessment = scoreRun({
+      exercise: {
+        direction: 'descending',
+        tonicPitchClass: 0,
+        steps: descendingOffsets.map((semitoneOffset, stepIndex) => ({
+          stepIndex,
+          semitoneOffset,
+          fingerNumber: 1
+        }))
+      },
+      tempoBpm: 60,
+      events: descendingOffsets.map((offset, index) => ({
+        sequenceNumber: index,
+        offsetUs: index * 1_000_000,
+        type: 'note_on' as const,
+        midiPitch: anchorPitch + offset,
+        velocity: 100
+      })),
+      config,
+      algorithmVersion: 'test'
+    })
+
+    expect(assessment.summary.hardFaultCount).toBe(0)
+    expect(assessment.steps.map((step) => step.expectedMidiPitch)).toEqual([
+      72, 71, 69, 67, 65, 64, 62, 60
+    ])
+    expect(assessment.steps.every((step) => !step.missed)).toBe(true)
   })
 })

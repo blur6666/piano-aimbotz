@@ -25,13 +25,28 @@ export function applyMigrations(sqlite: Database.Database): void {
   for (const filename of MIGRATION_FILES) {
     if (applied.has(filename)) continue
     const sql = fs.readFileSync(path.join(root, 'migrations', filename), 'utf8')
-    sqlite.transaction(() => {
-      sqlite.exec(sql)
-      sqlite
-        .prepare(
-          'INSERT INTO schema_migrations (filename, applied_at_ms) VALUES (?, ?)'
+    // Table-rebuild migrations (CREATE new / copy / DROP old / RENAME) fail
+    // under foreign_keys=ON if any other table still references the one
+    // being dropped, and PRAGMA foreign_keys cannot be toggled inside a
+    // transaction. Disable it around each migration, then verify no
+    // violations were introduced before re-enabling it.
+    sqlite.pragma('foreign_keys = OFF')
+    try {
+      sqlite.transaction(() => {
+        sqlite.exec(sql)
+        sqlite
+          .prepare(
+            'INSERT INTO schema_migrations (filename, applied_at_ms) VALUES (?, ?)'
+          )
+          .run(filename, Date.now())
+      })()
+      const violations = sqlite.pragma('foreign_key_check')
+      if (Array.isArray(violations) && violations.length > 0)
+        throw new Error(
+          `Migration ${filename} left foreign key violations: ${JSON.stringify(violations)}`
         )
-        .run(filename, Date.now())
-    })()
+    } finally {
+      sqlite.pragma('foreign_keys = ON')
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { buildApp } from './app.js'
 import { openSqlite } from './db/connection.js'
 import { applyMigrations } from './db/apply-migrations.js'
+import { backfillMissingAssessments } from './db/backfill-assessments.js'
 import {
   loadConfig,
   assertMinimumTempoAgainstExistingProgress
@@ -9,6 +10,7 @@ import {
 const config = loadConfig()
 const sqlite = openSqlite()
 applyMigrations(sqlite)
+backfillMissingAssessments(sqlite, config)
 
 const lowestCurrentTempo = sqlite
   .prepare('SELECT MIN(current_tempo_bpm) AS lowest FROM exercise_progress')
