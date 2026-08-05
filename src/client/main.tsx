@@ -126,7 +126,7 @@ function App() {
         setFaults(data.hardFaultCount ?? 0)
         setStatus(`Run saved. ${data.hardFaultCount ?? 0} wrong notes.`)
       },
-      (countInBeats + exercise.steps.length + 1) * beatMs
+      (countInBeats + exercise.steps.length) * beatMs
     )
   }
 
