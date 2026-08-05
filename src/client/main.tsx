@@ -12,6 +12,25 @@ type Exercise = {
 type MidiInput = MIDIInput
 type MidiAccess = MIDIAccess
 
+const noteNames = [
+  'C',
+  'C#',
+  'D',
+  'D#',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'G#',
+  'A',
+  'A#',
+  'B'
+]
+
+function readableMidiNote(pitch: number): string {
+  return `${noteNames[pitch % 12]}${Math.floor(pitch / 12) - 1} (${pitch})`
+}
+
 function App() {
   const [exercise, setExercise] = useState<Exercise | null>(null)
   const [inputs, setInputs] = useState<MidiInput[]>([])
@@ -45,6 +64,9 @@ function App() {
       if (available.length > 0) {
         setSelectedInput(available[0].id)
         setStatus('Input ready. Press Start when you are ready.')
+        console.info(
+          `[MIDI] connected: ${available[0].name ?? available[0].id}`
+        )
       } else setStatus('No MIDI inputs found.')
     } catch {
       setStatus('MIDI permission was denied or the device is unavailable.')
@@ -77,17 +99,26 @@ function App() {
       const command = statusByte & 0xf0
       if (command !== 0x90 && command !== 0x80) return
       const type = command === 0x90 && velocity !== 0 ? 'note_on' : 'note_off'
+      const offsetUs = Math.round(
+        (message.timeStamp - firstExpectedBeat) * 1000
+      )
       events.push({
         sequenceNumber: sequence++,
-        offsetUs: Math.round((message.timeStamp - firstExpectedBeat) * 1000),
+        offsetUs,
         type,
         midiPitch: pitch,
         velocity
       })
+      console.debug(
+        `[MIDI] ${type === 'note_on' ? 'note-on ' : 'note-off '}${readableMidiNote(pitch)} velocity=${velocity} offset=${(offsetUs / 1000).toFixed(1)}ms`
+      )
     }
     setFaults(null)
     setRunning(true)
     setStatus('Count-in')
+    console.info(
+      `[MIDI] run started: ${exercise.name} at ${exercise.tempoBpm} BPM`
+    )
     for (
       let index = 0;
       index < countInBeats + exercise.steps.length + 1;
@@ -128,6 +159,9 @@ function App() {
           return setStatus(data.error?.message ?? 'Could not save the run.')
         setFaults(data.hardFaultCount ?? 0)
         setStatus(`Run saved. ${data.hardFaultCount ?? 0} wrong notes.`)
+        console.info(
+          `[MIDI] run saved: ${data.hardFaultCount ?? 0} wrong notes, ${events.length} raw events`
+        )
       },
       (countInBeats + exercise.steps.length) * beatMs
     )
