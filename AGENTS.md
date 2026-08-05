@@ -58,46 +58,25 @@ the database schema. A few that are easy to violate by accident:
   assume `CREATE TABLE IF NOT EXISTS`-style idempotency is enough once a
   migration does something non-idempotent (`ALTER TABLE ... DROP COLUMN`,
   a table rebuild).
-- Fingering data for scales beyond the seeded C major is explicitly
-  unresolved (see `ARCHITECTURE.md`). Do not invent black-key fingerings
-  or their provenance.
+- Fingering data for all twelve scales is resolved with provenance in
+  `catalog/v1.ts` and `catalog/README.md` (pianoscales.org, cross-checked
+  against a second independent source). Do not invent black-key fingerings
+  or their provenance; extend `catalog/v1.ts` only from a sourced
+  reference, following the same pattern.
 
 ## Known gaps / TODO
 
-**Full catalog.** Only C major ascending is seeded. The 12-scale,
-24-exercise catalog with `progression_groups`/`scales` tables is a
-distinct later stage — deliberately not attempted yet. `exercises.direction`
-accepts `'descending'` (migration `0004`) and `exercise_steps.semitone_offset`
-accepts the full `-12..12` range a descending exercise needs (migration
-`0005`), and `scoreRun` already handles it correctly (see the descending
-test in `tests/scoring.test.ts`) — the schema and scorer are ready, but
-nothing seeds a descending exercise yet.
-
-**Drizzle is decorative and has drifted from the real schema.** All
-runtime queries go through raw `better-sqlite3`; `src/server/db/schema.ts`
-and `openDatabase()` in `src/server/db/connection.ts` are imported by
-nothing. Migrations are hand-written SQL, not `drizzle-kit`-generated, and
-`schema.ts` is missing constraints the real migrations have (no `direction`
-CHECK, no offset range, no `run_assessments` cross-column checks) — it
-would mislead anyone who read it as the source of truth. There's no
-committed drizzle-kit snapshot journal, so running `npm run drizzle:generate`
-today would emit a from-scratch migration duplicating every table rather
-than a real diff; don't run it. Pick one source of schema truth before
-touching this further:
-  - **Recommended**: delete `schema.ts`, `openDatabase()`, and the
-    `drizzle:generate` script/`drizzle-orm`/`drizzle-kit` dependencies;
-    document in `ARCHITECTURE.md` that migrations are hand-written SQL,
-    reviewed directly (which is already true in practice).
-  - Alternative: recommit to Drizzle as the schema source — regenerate a
-    snapshot journal matching the current hand-written migrations, keep
-    `schema.ts` in sync with every future migration, and actually route
-    queries through it. More churn, no clear benefit observed so far.
+**Full catalog: done.** All twelve scales (24 exercises) are seeded via
+`progression_groups`/`scales` tables (migration `0006`) and validated by
+`src/domain/catalog` before insertion (`catalog/v1.ts`).
+`exercises.direction` accepts `'descending'` (migration `0004`),
+`exercise_steps.semitone_offset` accepts the full `-12..12` range a
+descending exercise needs (migration `0005`), and `scoreRun` handles
+descending correctly (see the descending test in `tests/scoring.test.ts`).
+Descending fingering for every scale is the reverse of its ascending
+fingering, derived mechanically rather than sourced separately.
 
 **Minor cleanups**, none urgent:
-  - `countHardFaults` in `src/domain/scoring.ts` has no production callers
-    left (`app.ts`/`create-run.ts` call `scoreRun` directly). Port the three
-    Stage 1 tests in `tests/scoring.test.ts` that use it to call `scoreRun`
-    instead, then delete the shim.
   - `readRun` (`src/server/runs/read-run.ts`) does
     `sqlite.prepare('SELECT * FROM run_assessments WHERE run_id = ?').get(runId)`
     and casts straight to a typed row without checking for `undefined`. In
@@ -119,14 +98,6 @@ touching this further:
     but changes "startup runs migrations only" into "startup runs
     migrations, then repairs any legacy data" — worth a line in
     `ARCHITECTURE.md`'s deployment section if that doc is revisited.
-  - `tests/api.test.ts` and `tests/backfill.test.ts` hand-roll a
-    constraint-free `CREATE TABLE` schema string instead of calling
-    `applyMigrations(new Database(':memory:'))` like the newer test files
-    (`tests/seed.test.ts`, `tests/exercises.test.ts`,
-    `tests/migrations.test.ts`) do. That means those two files don't
-    exercise real CHECK/FK constraints. Worth converging on
-    `applyMigrations` everywhere for consistency, not because anything is
-    currently broken.
 
 **Stage 2 scoring test coverage.** `scoreRun` (`src/domain/scoring.ts`)
 implements more than the current tests exercise. Confirmed still missing:
@@ -148,6 +119,9 @@ implements more than the current tests exercise. Confirmed still missing:
 - Velocity having no effect on scoring
 - `summary.passed` against `maxTimingFaultsPerRun` /
   `maxOverlapFaultsPerRun`
-- Client-side velocity-zero → `note_off` normalization
-  (`src/client/midi/capture.ts`) — no test infrastructure for the client
-  exists yet
+
+Client-side velocity-zero → `note_off` normalization
+(`src/client/midi/capture.ts`) is covered: see
+`tests/client-capture.test.ts` (fake MIDI messages, fake monotonic clock,
+normalization, sequence ordering, negative count-in offsets, and the final
+`POST /api/runs` request shape).

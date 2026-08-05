@@ -52,7 +52,10 @@ export function createRun(
 
   const exercise = sqlite
     .prepare(
-      'SELECT id, direction, tonic_pitch_class FROM exercises WHERE id = ?'
+      `SELECT e.id, e.direction, s.tonic_pitch_class
+       FROM exercises e
+       JOIN scales s ON s.id = e.scale_id
+       WHERE e.id = ?`
     )
     .get(body.exerciseId) as ExerciseRow | undefined
   if (!exercise) throw new NotFoundError('Exercise not found.')

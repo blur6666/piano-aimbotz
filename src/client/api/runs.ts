@@ -23,6 +23,83 @@ export type SubmitRunResponse = {
   }
 }
 
+export type RunHistoryEntry = {
+  id: number
+  firstExpectedBeatAtMs: number
+  tempoBpm: number
+  originalAssessment: {
+    algorithmVersion: string
+    hardFaultCount: number
+    timingFaultCount: number
+    overlapFaultCount: number
+    timingSampleCount: number
+    timingExcludedCount: number
+    meanAbsoluteTimingDeviationUs: number | null
+    passed: boolean
+  }
+}
+
+export type ProgressionParameters =
+  | {
+      cleanRunsRequired: number
+      tempoIncrementBpm: number
+      failedRunBehavior: 'reset_streak'
+    }
+  | {
+      cleanRunsRequired: number
+      tempoIncrementBpm: number
+      failedRunBehavior: 'step_down'
+      tempoDecrementBpm: number
+      minimumTempoBpm: number
+    }
+
+export type RunDetail = {
+  run: {
+    id: number
+    exerciseId: number
+    firstExpectedBeatAtMs: number
+    tempoBpm: number
+  }
+  originalAssessment: {
+    algorithmVersion: string
+    progressionPolicyVersion: string
+    progressionParameters: ProgressionParameters
+    assessedAtMs: number
+    summary: RunHistoryEntry['originalAssessment']
+  }
+  currentAssessment: {
+    algorithmVersion: string
+    steps: Array<{
+      stepIndex: number
+      expectedMidiPitch: number | null
+      matchedEventSequenceNumber: number | null
+      hardFaultCount: number
+      missed: boolean
+      timingDeviationUs: number | null
+      timingExcluded: boolean
+      timingFault: boolean
+      overlapFault: boolean
+    }>
+    faults: Array<{
+      type: 'wrong_pitch' | 'duplicate' | 'missed' | 'extra'
+      stepIndex: number
+      eventSequenceNumber: number | null
+    }>
+    summary: RunHistoryEntry['originalAssessment']
+  }
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const response = await fetch(url)
+  const data = await response.json()
+  if (!response.ok)
+    throw new Error(
+      (data as { error?: { message: string } }).error?.message ??
+        `Request to ${url} failed.`
+    )
+  return data
+}
+
 export async function submitRun(
   payload: SubmitRun
 ): Promise<SubmitRunResponse> {
@@ -38,4 +115,17 @@ export async function submitRun(
         'Could not save the run.'
     )
   return data as SubmitRunResponse
+}
+
+export async function fetchRunHistory(
+  exerciseId: number
+): Promise<RunHistoryEntry[]> {
+  const data = (await fetchJson(`/api/runs?exerciseId=${exerciseId}`)) as {
+    runs: RunHistoryEntry[]
+  }
+  return data.runs
+}
+
+export async function fetchRunDetail(runId: number): Promise<RunDetail> {
+  return (await fetchJson(`/api/runs/${runId}`)) as RunDetail
 }

@@ -64,7 +64,10 @@ export function backfillMissingAssessments(
   for (const run of missing) {
     const exercise = sqlite
       .prepare(
-        'SELECT direction, tonic_pitch_class FROM exercises WHERE id = ?'
+        `SELECT e.direction, s.tonic_pitch_class
+         FROM exercises e
+         JOIN scales s ON s.id = e.scale_id
+         WHERE e.id = ?`
       )
       .get(run.exercise_id) as ExerciseRow | undefined
     // The exercise itself is gone; there is nothing sane to score against.

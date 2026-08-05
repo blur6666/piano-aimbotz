@@ -2,6 +2,13 @@ import { pathToFileURL } from 'node:url'
 import type Database from 'better-sqlite3'
 import { openSqlite } from './connection.js'
 import { loadConfig, type AppConfig } from '../config.js'
+import { catalogV1 } from '../../../catalog/v1.js'
+import {
+  validateCatalog,
+  type CatalogExercise,
+  type CatalogGroup,
+  type CatalogScale
+} from '../../domain/catalog/index.js'
 
 // The seed command inserts missing data and verifies matching existing
 // data; it does not silently update definitions (ARCHITECTURE.md).
@@ -12,49 +19,147 @@ export function seedCatalog(
   sqlite: Database.Database,
   config: AppConfig
 ): void {
+  validateCatalog(catalogV1)
   const seed = sqlite.transaction(() => {
-    const existingExercise = sqlite
-      .prepare('SELECT id, name FROM exercises WHERE slug = ?')
-      .get('c-major-ascending') as { id: number; name: string } | undefined
-
-    const exerciseName = 'C major ascending'
-    let exerciseId: number
-    if (existingExercise) {
-      if (existingExercise.name !== exerciseName)
-        throw new Error(
-          `Seed error: exercise "c-major-ascending" already has name "${existingExercise.name}", ` +
-            `which differs from the seed source "${exerciseName}". Definitions are never silently updated.`
-        )
-      exerciseId = existingExercise.id
-    } else {
-      const inserted = sqlite
-        .prepare(
-          `INSERT INTO exercises (slug, name, direction, tonic_pitch_class)
-           VALUES ('c-major-ascending', ?, 'ascending', 0)
-           RETURNING id`
-        )
-        .get(exerciseName) as { id: number }
-      exerciseId = inserted.id
+    for (const group of catalogV1.groups) {
+      const groupId = seedProgressionGroup(sqlite, group)
+      for (const scale of group.scales) {
+        const scaleId = seedScale(sqlite, scale, groupId)
+        for (const exercise of scale.exercises) {
+          const exerciseId = seedExercise(sqlite, scale, exercise, scaleId)
+          seedExerciseSteps(sqlite, scale, exercise, exerciseId)
+          seedExerciseProgress(sqlite, scale, exercise, exerciseId, config)
+        }
+      }
     }
+  })
+  seed()
+}
 
-    const steps = [
-      ['C', 0, 1],
-      ['D', 2, 2],
-      ['E', 4, 3],
-      ['F', 5, 1],
-      ['G', 7, 2],
-      ['A', 9, 3],
-      ['B', 11, 4],
-      ['C', 12, 5]
-    ] as const
-    const selectStep = sqlite.prepare(
-      'SELECT note_spelling, semitone_offset, finger_number FROM exercise_steps WHERE exercise_id = ? AND step_index = ?'
+function seedProgressionGroup(
+  sqlite: Database.Database,
+  group: CatalogGroup
+): number {
+  const existing = sqlite
+    .prepare(
+      'SELECT id, name, progression_order AS progressionOrder FROM progression_groups WHERE slug = ?'
     )
-    const insertStep = sqlite.prepare(
-      `INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number)
-       VALUES (?, ?, ?, ?, ?)`
+    .get(group.slug) as
+    | { id: number; name: string; progressionOrder: number }
+    | undefined
+
+  if (existing) {
+    if (
+      existing.name !== group.name ||
+      existing.progressionOrder !== group.progressionOrder
     )
-    steps.forEach(([noteSpelling, semitoneOffset, fingerNumber], stepIndex) => {
+      throw new Error(
+        `Seed error: progression group "${group.slug}" already has (name="${existing.name}", progressionOrder=${existing.progressionOrder}), ` +
+          `which differs from the seed source (name="${group.name}", progressionOrder=${group.progressionOrder}). Definitions are never silently updated.`
+      )
+    return existing.id
+  }
+
+  const inserted = sqlite
+    .prepare(
+      `INSERT INTO progression_groups (slug, name, progression_order)
+       VALUES (?, ?, ?)
+       RETURNING id`
+    )
+    .get(group.slug, group.name, group.progressionOrder) as { id: number }
+  return inserted.id
+}
+
+function seedScale(
+  sqlite: Database.Database,
+  scale: CatalogScale,
+  groupId: number
+): number {
+  const existing = sqlite
+    .prepare(
+      `SELECT id, progression_group_id AS progressionGroupId, display_name AS displayName,
+              tonic_pitch_class AS tonicPitchClass, position_in_group AS positionInGroup
+       FROM scales WHERE slug = ?`
+    )
+    .get(scale.slug) as
+    | {
+        id: number
+        progressionGroupId: number
+        displayName: string
+        tonicPitchClass: number
+        positionInGroup: number
+      }
+    | undefined
+
+  if (existing) {
+    if (
+      existing.progressionGroupId !== groupId ||
+      existing.displayName !== scale.displayName ||
+      existing.tonicPitchClass !== scale.tonicPitchClass ||
+      existing.positionInGroup !== scale.positionInGroup
+    )
+      throw new Error(
+        `Seed error: scale "${scale.slug}" already has (progressionGroupId=${existing.progressionGroupId}, displayName="${existing.displayName}", ` +
+          `tonicPitchClass=${existing.tonicPitchClass}, positionInGroup=${existing.positionInGroup}), which differs from the seed source ` +
+          `(progressionGroupId=${groupId}, displayName="${scale.displayName}", tonicPitchClass=${scale.tonicPitchClass}, positionInGroup=${scale.positionInGroup}). ` +
+          'Definitions are never silently updated.'
+      )
+    return existing.id
+  }
+
+  const inserted = sqlite
+    .prepare(
+      `INSERT INTO scales (progression_group_id, slug, display_name, tonic_pitch_class, position_in_group)
+       VALUES (?, ?, ?, ?, ?)
+       RETURNING id`
+    )
+    .get(
+      groupId,
+      scale.slug,
+      scale.displayName,
+      scale.tonicPitchClass,
+      scale.positionInGroup
+    ) as { id: number }
+  return inserted.id
+}
+
+function seedExercise(
+  sqlite: Database.Database,
+  _scale: CatalogScale,
+  exercise: CatalogExercise,
+  scaleId: number
+): number {
+  const existing = sqlite
+    .prepare('SELECT id FROM exercises WHERE scale_id = ? AND direction = ?')
+    .get(scaleId, exercise.direction) as { id: number } | undefined
+  if (existing) return existing.id
+
+  const inserted = sqlite
+    .prepare(
+      `INSERT INTO exercises (scale_id, direction)
+       VALUES (?, ?)
+       RETURNING id`
+    )
+    .get(scaleId, exercise.direction) as { id: number }
+  return inserted.id
+}
+
+function seedExerciseSteps(
+  sqlite: Database.Database,
+  scale: CatalogScale,
+  exercise: CatalogExercise,
+  exerciseId: number
+): void {
+  const label = `${scale.slug} ${exercise.direction}`
+  const selectStep = sqlite.prepare(
+    'SELECT note_spelling, semitone_offset, finger_number FROM exercise_steps WHERE exercise_id = ? AND step_index = ?'
+  )
+  const insertStep = sqlite.prepare(
+    `INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number)
+     VALUES (?, ?, ?, ?, ?)`
+  )
+  exercise.steps.forEach(
+    ([noteSpelling, semitoneOffset, fingerNumber], stepIndex) => {
       const existingStep = selectStep.get(exerciseId, stepIndex) as
         | {
             note_spelling: string
@@ -69,7 +174,7 @@ export function seedCatalog(
           existingStep.finger_number !== fingerNumber
         )
           throw new Error(
-            `Seed error: exercise "c-major-ascending" step ${stepIndex} already has ` +
+            `Seed error: exercise "${label}" step ${stepIndex} already has ` +
               `(${existingStep.note_spelling}, ${existingStep.semitone_offset}, ${existingStep.finger_number}), ` +
               `which differs from the seed source (${noteSpelling}, ${semitoneOffset}, ${fingerNumber}). ` +
               'Definitions are never silently updated.'
@@ -83,31 +188,39 @@ export function seedCatalog(
           fingerNumber
         )
       }
-    })
-
-    const existingProgress = sqlite
-      .prepare(
-        'SELECT initial_tempo_bpm AS initialTempoBpm FROM exercise_progress WHERE exercise_id = ?'
-      )
-      .get(exerciseId) as { initialTempoBpm: number } | undefined
-
-    if (existingProgress) {
-      if (existingProgress.initialTempoBpm !== config.seedInitialTempoBpm)
-        throw new Error(
-          `Seed error: exercise "c-major-ascending" already has initial tempo ${existingProgress.initialTempoBpm}, ` +
-            `which differs from configured SEED_INITIAL_TEMPO_BPM=${config.seedInitialTempoBpm}. ` +
-            'Initial tempo and current progress are never changed by re-seeding.'
-        )
-    } else {
-      sqlite
-        .prepare(
-          `INSERT INTO exercise_progress (exercise_id, initial_tempo_bpm, current_tempo_bpm, consecutive_clean_runs)
-           VALUES (?, ?, ?, 0)`
-        )
-        .run(exerciseId, config.seedInitialTempoBpm, config.seedInitialTempoBpm)
     }
-  })
-  seed()
+  )
+}
+
+function seedExerciseProgress(
+  sqlite: Database.Database,
+  scale: CatalogScale,
+  exercise: CatalogExercise,
+  exerciseId: number,
+  config: AppConfig
+): void {
+  const label = `${scale.slug} ${exercise.direction}`
+  const existingProgress = sqlite
+    .prepare(
+      'SELECT initial_tempo_bpm AS initialTempoBpm FROM exercise_progress WHERE exercise_id = ?'
+    )
+    .get(exerciseId) as { initialTempoBpm: number } | undefined
+
+  if (existingProgress) {
+    if (existingProgress.initialTempoBpm !== config.seedInitialTempoBpm)
+      throw new Error(
+        `Seed error: exercise "${label}" already has initial tempo ${existingProgress.initialTempoBpm}, ` +
+          `which differs from configured SEED_INITIAL_TEMPO_BPM=${config.seedInitialTempoBpm}. ` +
+          'Initial tempo and current progress are never changed by re-seeding.'
+      )
+  } else {
+    sqlite
+      .prepare(
+        `INSERT INTO exercise_progress (exercise_id, initial_tempo_bpm, current_tempo_bpm, consecutive_clean_runs)
+         VALUES (?, ?, ?, 0)`
+      )
+      .run(exerciseId, config.seedInitialTempoBpm, config.seedInitialTempoBpm)
+  }
 }
 
 const isMainModule =

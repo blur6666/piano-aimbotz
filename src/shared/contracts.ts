@@ -15,5 +15,45 @@ export const SubmitRunSchema = Type.Object({
   events: Type.Array(MidiEventSchema)
 })
 
+export const ExerciseStepSchema = Type.Object({
+  stepIndex: Type.Integer({ minimum: 0, maximum: 7 }),
+  noteSpelling: Type.String({ minLength: 1 }),
+  fingerNumber: Type.Integer({ minimum: 1, maximum: 5 })
+})
+
+export const ExerciseSchema = Type.Object({
+  id: Type.Integer({ minimum: 1 }),
+  direction: Type.Union([
+    Type.Literal('ascending'),
+    Type.Literal('descending')
+  ]),
+  currentTempoBpm: Type.Integer({ minimum: 1 }),
+  consecutiveCleanRuns: Type.Integer({ minimum: 0 }),
+  steps: Type.Array(ExerciseStepSchema)
+})
+
+export const ScaleSchema = Type.Object({
+  slug: Type.String({ minLength: 1 }),
+  displayName: Type.String({ minLength: 1 }),
+  positionInGroup: Type.Integer({ minimum: 1 }),
+  exercises: Type.Array(ExerciseSchema)
+})
+
+export const ProgressionGroupSchema = Type.Object({
+  slug: Type.String({ minLength: 1 }),
+  name: Type.String({ minLength: 1 }),
+  progressionOrder: Type.Integer({ minimum: 1 }),
+  scales: Type.Array(ScaleSchema)
+})
+
+export const ExerciseListResponseSchema = Type.Object({
+  groups: Type.Array(ProgressionGroupSchema)
+})
+
 export type MidiEvent = Static<typeof MidiEventSchema>
 export type SubmitRun = Static<typeof SubmitRunSchema>
+export type ExerciseStep = Static<typeof ExerciseStepSchema>
+export type Exercise = Static<typeof ExerciseSchema>
+export type Scale = Static<typeof ScaleSchema>
+export type ProgressionGroup = Static<typeof ProgressionGroupSchema>
+export type ExerciseListResponse = Static<typeof ExerciseListResponseSchema>

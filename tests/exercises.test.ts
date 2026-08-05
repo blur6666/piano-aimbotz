@@ -22,39 +22,90 @@ const testConfig: AppConfig = {
 }
 
 describe('GET /api/exercises', () => {
-  it('returns every seeded exercise, not just the first', async () => {
+  it('returns the full 3-group/12-scale/24-exercise catalog in progression order', async () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
     seedCatalog(sqlite, testConfig)
 
-    // A second exercise, inserted directly (the catalog seed only creates
-    // c-major-ascending for now) to prove the route doesn't silently drop
-    // it.
-    const second = sqlite
-      .prepare(
-        `INSERT INTO exercises (slug, name, direction, tonic_pitch_class)
-         VALUES ('c-major-descending', 'C major descending', 'descending', 0)
-         RETURNING id`
-      )
-      .get() as { id: number }
-    sqlite
-      .prepare(
-        'INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (?, 0, ?, ?, 1)'
-      )
-      .run(second.id, 'C', 0)
-    sqlite
-      .prepare(
-        'INSERT INTO exercise_progress (exercise_id, initial_tempo_bpm, current_tempo_bpm, consecutive_clean_runs) VALUES (?, 60, 60, 0)'
-      )
-      .run(second.id)
-
     const app = buildApp(sqlite, testConfig)
     const response = await app.inject({ method: 'GET', url: '/api/exercises' })
     expect(response.statusCode).toBe(200)
-    const names = response
-      .json()
-      .exercises.map((exercise: { name: string }) => exercise.name)
-    expect(names).toEqual(['C major ascending', 'C major descending'])
+    const body = response.json()
+
+    expect(
+      body.groups.map(
+        (group: { slug: string; progressionOrder: number; scales: unknown[] }) => ({
+          slug: group.slug,
+          progressionOrder: group.progressionOrder,
+          scaleCount: group.scales.length
+        })
+      )
+    ).toEqual([
+      { slug: 'group-1', progressionOrder: 1, scaleCount: 6 },
+      { slug: 'group-2', progressionOrder: 2, scaleCount: 1 },
+      { slug: 'group-3', progressionOrder: 3, scaleCount: 5 }
+    ])
+
+    const totalExercises = body.groups.reduce(
+      (
+        sum: number,
+        group: { scales: Array<{ exercises: unknown[] }> }
+      ) =>
+        sum +
+        group.scales.reduce(
+          (scaleSum: number, scale: { exercises: unknown[] }) =>
+            scaleSum + scale.exercises.length,
+          0
+        ),
+      0
+    )
+    expect(totalExercises).toBe(24)
+
+    expect(body.groups[0].scales[0]).toMatchObject({
+      slug: 'c-major',
+      displayName: 'C major',
+      positionInGroup: 1
+    })
+    expect(
+      body.groups[0].scales[0].exercises.map(
+        (exercise: { id: number; direction: string }) => exercise.direction
+      )
+    ).toEqual(['ascending', 'descending'])
+
+    // Every exercise: starts at the configured seed tempo, has 8 steps.
+    for (const group of body.groups)
+      for (const scale of group.scales)
+        for (const exercise of scale.exercises) {
+          expect(exercise.currentTempoBpm).toBe(60)
+          expect(exercise.consecutiveCleanRuns).toBe(0)
+          expect(exercise.steps).toHaveLength(8)
+        }
+
+    // Spot-check the resolved A-flat fingering conflict (TSV value, see
+    // catalog/README.md) made it through seed -> route -> response intact.
+    const group3 = body.groups[2]
+    const aFlat = group3.scales.find(
+      (scale: { slug: string }) => scale.slug === 'a-flat-major'
+    )
+    const aFlatAscending = aFlat.exercises.find(
+      (exercise: { direction: string }) => exercise.direction === 'ascending'
+    )
+    expect(
+      aFlatAscending.steps.map((step: { fingerNumber: number }) => step.fingerNumber)
+    ).toEqual([3, 4, 1, 2, 3, 1, 2, 3])
+
+    await app.close()
+    sqlite.close()
+  })
+
+  it('returns 503 before the catalog is seeded', async () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+
+    const app = buildApp(sqlite, testConfig)
+    const response = await app.inject({ method: 'GET', url: '/api/exercises' })
+    expect(response.statusCode).toBe(503)
+    expect(response.json().error.code).toBe('not_seeded')
 
     await app.close()
     sqlite.close()

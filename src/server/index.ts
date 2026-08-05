@@ -8,6 +8,12 @@ import {
 } from './config.js'
 
 const config = loadConfig()
+console.info(
+  config.progression.failedRunBehavior === 'step_down'
+    ? `Progression: failed runs step down ${config.progression.tempoDecrementBpm} BPM ` +
+        `(minimum ${config.progression.minimumTempoBpm} BPM), +${config.progression.tempoIncrementBpm} BPM on advance.`
+    : `Progression: failed runs reset the streak (no tempo change), +${config.progression.tempoIncrementBpm} BPM on advance.`
+)
 const sqlite = openSqlite()
 applyMigrations(sqlite)
 backfillMissingAssessments(sqlite, config)

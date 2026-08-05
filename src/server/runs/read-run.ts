@@ -62,7 +62,12 @@ export function readRun(
     .get(runId) as AssessmentRow
 
   const exercise = sqlite
-    .prepare('SELECT direction, tonic_pitch_class FROM exercises WHERE id = ?')
+    .prepare(
+      `SELECT e.direction, s.tonic_pitch_class
+       FROM exercises e
+       JOIN scales s ON s.id = e.scale_id
+       WHERE e.id = ?`
+    )
     .get(run.exercise_id) as ExerciseRow
   const steps = sqlite
     .prepare(

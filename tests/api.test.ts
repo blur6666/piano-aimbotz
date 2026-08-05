@@ -1,14 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
+import { applyMigrations } from '../src/server/db/apply-migrations.js'
+import { seedCatalog } from '../src/server/db/seed.js'
 import { buildApp } from '../src/server/app.js'
 import type { AppConfig } from '../src/server/config.js'
-
-const schema = `CREATE TABLE exercises (id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL, direction TEXT NOT NULL, tonic_pitch_class INTEGER NOT NULL);
-CREATE TABLE exercise_steps (id INTEGER PRIMARY KEY, exercise_id INTEGER NOT NULL, step_index INTEGER NOT NULL, note_spelling TEXT NOT NULL, semitone_offset INTEGER NOT NULL, finger_number INTEGER NOT NULL, UNIQUE(exercise_id, step_index));
-CREATE TABLE exercise_progress (exercise_id INTEGER PRIMARY KEY, initial_tempo_bpm INTEGER NOT NULL, current_tempo_bpm INTEGER NOT NULL, consecutive_clean_runs INTEGER NOT NULL);
-CREATE TABLE runs (id INTEGER PRIMARY KEY, exercise_id INTEGER NOT NULL, performed_at_ms INTEGER NOT NULL, tempo_bpm INTEGER NOT NULL);
-CREATE TABLE midi_events (id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, sequence_number INTEGER NOT NULL, offset_us INTEGER NOT NULL, event_type TEXT NOT NULL, midi_pitch INTEGER NOT NULL, velocity INTEGER NOT NULL, UNIQUE(run_id, sequence_number));
-CREATE TABLE run_assessments (run_id INTEGER PRIMARY KEY, algorithm_version TEXT NOT NULL, scoring_parameters TEXT NOT NULL, progression_policy_version TEXT NOT NULL, progression_parameters TEXT NOT NULL, hard_fault_count INTEGER NOT NULL, timing_fault_count INTEGER NOT NULL, overlap_fault_count INTEGER NOT NULL, timing_sample_count INTEGER NOT NULL, timing_excluded_count INTEGER NOT NULL, mean_absolute_timing_deviation_us INTEGER, passed INTEGER NOT NULL, assessed_at_ms INTEGER NOT NULL);`
 
 const testConfig: AppConfig = {
   scoring: {
@@ -26,30 +21,28 @@ const testConfig: AppConfig = {
   seedInitialTempoBpm: 60
 }
 
-function seedExercise(sqlite: Database.Database, tempoBpm: number) {
-  sqlite
-    .prepare(
-      "INSERT INTO exercises VALUES (1, 'c-major-ascending', 'C major ascending', 'ascending', 0)"
-    )
-    .run()
-  const steps = [
-    ['C', 0, 1],
-    ['D', 2, 2],
-    ['E', 4, 3],
-    ['F', 5, 1],
-    ['G', 7, 2],
-    ['A', 9, 3],
-    ['B', 11, 4],
-    ['C', 12, 5]
-  ]
-  steps.forEach(([note, offset, finger], index) =>
+function seedAndOpenCMajorAscending(
+  sqlite: Database.Database,
+  currentTempoBpm = 60
+): number {
+  applyMigrations(sqlite)
+  seedCatalog(sqlite, testConfig)
+  const exerciseId = (
     sqlite
-      .prepare('INSERT INTO exercise_steps VALUES (?, 1, ?, ?, ?, ?)')
-      .run(index + 1, index, note, offset, finger)
-  )
-  sqlite
-    .prepare('INSERT INTO exercise_progress VALUES (1, ?, ?, 0)')
-    .run(tempoBpm, tempoBpm)
+      .prepare(
+        `SELECT e.id FROM exercises e
+         JOIN scales s ON s.id = e.scale_id
+         WHERE s.slug = 'c-major' AND e.direction = 'ascending'`
+      )
+      .get() as { id: number }
+  ).id
+  if (currentTempoBpm !== testConfig.seedInitialTempoBpm)
+    sqlite
+      .prepare(
+        'UPDATE exercise_progress SET current_tempo_bpm = ? WHERE exercise_id = ?'
+      )
+      .run(currentTempoBpm, exerciseId)
+  return exerciseId
 }
 
 describe('run API', () => {
@@ -61,14 +54,13 @@ describe('run API', () => {
 
   it('stores a completed run and raw events atomically', async () => {
     sqlite = new Database(':memory:')
-    sqlite.exec(schema)
-    seedExercise(sqlite, 60)
+    const exerciseId = seedAndOpenCMajorAscending(sqlite)
     const app = buildApp(sqlite, testConfig)
     const response = await app.inject({
       method: 'POST',
       url: '/api/runs',
       payload: {
-        exerciseId: 1,
+        exerciseId,
         firstExpectedBeatAtMs: 1000,
         tempoBpm: 60,
         events: [
@@ -96,21 +88,24 @@ describe('run API', () => {
       sqlite.prepare('SELECT count(*) as count FROM midi_events').get()
     ).toEqual({ count: 2 })
     expect(
-      sqlite.prepare('SELECT count(*) as count FROM run_assessments').get()
+      sqlite
+        .prepare(
+          'SELECT count(*) as count FROM run_assessments WHERE run_id IN (SELECT id FROM runs WHERE exercise_id = ?)'
+        )
+        .get(exerciseId)
     ).toEqual({ count: 1 })
     await app.close()
   })
 
   it('rejects a run submitted against a stale tempo', async () => {
     sqlite = new Database(':memory:')
-    sqlite.exec(schema)
-    seedExercise(sqlite, 64)
+    const exerciseId = seedAndOpenCMajorAscending(sqlite, 64)
     const app = buildApp(sqlite, testConfig)
     const response = await app.inject({
       method: 'POST',
       url: '/api/runs',
       payload: {
-        exerciseId: 1,
+        exerciseId,
         firstExpectedBeatAtMs: 1000,
         tempoBpm: 60,
         events: []
@@ -124,8 +119,7 @@ describe('run API', () => {
 
   it('advances tempo and resets the streak after three clean runs', async () => {
     sqlite = new Database(':memory:')
-    sqlite.exec(schema)
-    seedExercise(sqlite, 60)
+    const exerciseId = seedAndOpenCMajorAscending(sqlite)
     const app = buildApp(sqlite, testConfig)
     const cMajor = [60, 62, 64, 65, 67, 69, 71, 72]
     const playCleanRun = () =>
@@ -133,7 +127,7 @@ describe('run API', () => {
         method: 'POST',
         url: '/api/runs',
         payload: {
-          exerciseId: 1,
+          exerciseId,
           firstExpectedBeatAtMs: 1000,
           tempoBpm: 60,
           events: cMajor.map((midiPitch, index) => ({
@@ -158,14 +152,13 @@ describe('run API', () => {
 
   it('returns run history and current-assessment detail', async () => {
     sqlite = new Database(':memory:')
-    sqlite.exec(schema)
-    seedExercise(sqlite, 60)
+    const exerciseId = seedAndOpenCMajorAscending(sqlite)
     const app = buildApp(sqlite, testConfig)
     await app.inject({
       method: 'POST',
       url: '/api/runs',
       payload: {
-        exerciseId: 1,
+        exerciseId,
         firstExpectedBeatAtMs: 1000,
         tempoBpm: 60,
         events: [
@@ -182,7 +175,7 @@ describe('run API', () => {
 
     const history = await app.inject({
       method: 'GET',
-      url: '/api/runs?exerciseId=1'
+      url: `/api/runs?exerciseId=${exerciseId}`
     })
     expect(history.statusCode).toBe(200)
     expect(history.json().runs).toHaveLength(1)

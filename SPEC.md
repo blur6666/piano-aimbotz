@@ -71,8 +71,7 @@ The only right-hand exception among the white-key scales. Thumb avoids the black
 
 Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
 
-**But these do not share a pattern.** Each has its own right-hand fingering: B♭ starts on 4 and tucks the thumb immediately, E♭ starts on 3, D♭ starts on
-2. Five separate memorisations, made easier by hand position rather than by a common shape.
+**But these do not share a pattern.** Each has its own right-hand fingering. Resolved with provenance in `catalog/v1.ts` and `catalog/README.md` (pianoscales.org, cross-checked against a second independent source): B♭, E♭, D♭, and G♭ all start on finger 2; A♭ starts on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
 
 Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". The progression logic should know that the boundary between them changes what advancement means.
 

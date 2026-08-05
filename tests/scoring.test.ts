@@ -1,8 +1,43 @@
 import { describe, expect, it } from 'vitest'
-import { countHardFaults, scoreRun } from '../src/domain/scoring.js'
+import { scoreRun, type ScoringConfig } from '../src/domain/scoring.js'
 
 const cMajor = [60, 62, 64, 65, 67, 69, 71, 72]
 const cMajorOffsets = cMajor.map((pitch) => pitch - 60)
+
+const hardFaultOnlyConfig: ScoringConfig = {
+  timingToleranceUs: Number.MAX_SAFE_INTEGER,
+  overlapToleranceUs: Number.MAX_SAFE_INTEGER,
+  maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
+  maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
+  recoveryWindowSteps: 0
+}
+
+function countHardFaults(
+  tonicPitchClass: number,
+  semitoneOffsets: number[],
+  events: Array<{ type: 'note_on' | 'note_off'; midiPitch: number }>
+): number {
+  return scoreRun({
+    exercise: {
+      direction: 'ascending',
+      tonicPitchClass,
+      steps: semitoneOffsets.map((semitoneOffset, stepIndex) => ({
+        stepIndex,
+        semitoneOffset,
+        fingerNumber: 1
+      }))
+    },
+    tempoBpm: 60,
+    events: events.map((event, sequenceNumber) => ({
+      ...event,
+      sequenceNumber,
+      offsetUs: sequenceNumber * 1_000_000,
+      velocity: 100
+    })),
+    config: hardFaultOnlyConfig,
+    algorithmVersion: 'test'
+  }).summary.hardFaultCount
+}
 
 describe('Stage 1 hard faults', () => {
   it('counts only note-ons that are not the next expected note', () => {

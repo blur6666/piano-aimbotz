@@ -267,37 +267,3 @@ export function scoreRun(input: ScoreRunInput): Assessment {
     }
   }
 }
-
-// Kept as the small Stage 1 compatibility surface while callers move to scoreRun.
-export function countHardFaults(
-  tonicPitchClass: number,
-  semitoneOffsets: number[],
-  events: Array<{ type: 'note_on' | 'note_off'; midiPitch: number }>
-): number {
-  return scoreRun({
-    exercise: {
-      direction: 'ascending',
-      tonicPitchClass,
-      steps: semitoneOffsets.map((semitoneOffset, stepIndex) => ({
-        stepIndex,
-        semitoneOffset,
-        fingerNumber: 1
-      }))
-    },
-    tempoBpm: 60,
-    events: events.map((event, sequenceNumber) => ({
-      ...event,
-      sequenceNumber,
-      offsetUs: sequenceNumber,
-      velocity: 0
-    })),
-    config: {
-      timingToleranceUs: Number.MAX_SAFE_INTEGER,
-      overlapToleranceUs: Number.MAX_SAFE_INTEGER,
-      maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
-      maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
-      recoveryWindowSteps: 0
-    },
-    algorithmVersion: 'stage1-compatibility'
-  }).summary.hardFaultCount
-}
