@@ -46,7 +46,7 @@ describe('applyMigrations', () => {
       ).toBe(true)
   })
 
-  it('an altering migration (0004, a table rebuild) preserves existing fixture data', () => {
+  it('altering migrations (0004 and 0005, table rebuilds) preserve existing fixture data', () => {
     const sqlite = new Database(':memory:')
     sqlite.pragma('foreign_keys = ON')
     applyMigrations(sqlite)
@@ -103,6 +103,52 @@ describe('applyMigrations', () => {
       sqlite
         .prepare(
           "INSERT INTO exercises (id, slug, name, direction, tonic_pitch_class) VALUES (2, 'bogus', 'Bogus', 'sideways', 0)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    sqlite.close()
+  })
+
+  it('migration 0005 allows negative semitone offsets for descending steps and still rejects out-of-range values', () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+
+    sqlite
+      .prepare(
+        "INSERT INTO exercises (id, slug, name, direction, tonic_pitch_class) VALUES (1, 'c-major-descending', 'C major descending', 'descending', 0)"
+      )
+      .run()
+
+    // C major descending, anchored on the upper C: C B A G F E D C
+    const descendingOffsets = [0, -1, -3, -5, -7, -8, -10, -12]
+    const insertStep = sqlite.prepare(
+      'INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, ?, ?, ?, 1)'
+    )
+    expect(() =>
+      descendingOffsets.forEach((offset, index) =>
+        insertStep.run(index, 'X', offset)
+      )
+    ).not.toThrow()
+    expect(
+      sqlite
+        .prepare(
+          'SELECT semitone_offset FROM exercise_steps WHERE exercise_id = 1 ORDER BY step_index'
+        )
+        .all()
+    ).toEqual(descendingOffsets.map((semitone_offset) => ({ semitone_offset })))
+
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', -13, 1)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', 13, 1)"
         )
         .run()
     ).toThrow(/CHECK constraint failed/)
