@@ -77,14 +77,6 @@ Descending fingering for every scale is the reverse of its ascending
 fingering, derived mechanically rather than sourced separately.
 
 **Minor cleanups**, none urgent:
-  - `readRun` (`src/server/runs/read-run.ts`) does
-    `sqlite.prepare('SELECT * FROM run_assessments WHERE run_id = ?').get(runId)`
-    and casts straight to a typed row without checking for `undefined`. In
-    practice every run gets one (submission is transactional, and startup
-    backfills legacy gaps), but if that invariant is ever violated this
-    throws a raw `TypeError` that `app.ts`'s error handler will now catch
-    and turn into a clean 500 — still worth a one-line explicit guard with
-    a clearer message.
   - `createRun` (`src/server/runs/create-run.ts`) reads the exercise/
     progress rows and calls `scoreRun` *before* opening the
     `sqlite.transaction(...)` block, not inside it. `better-sqlite3` is
@@ -99,26 +91,17 @@ fingering, derived mechanically rather than sourced separately.
     migrations, then repairs any legacy data" — worth a line in
     `ARCHITECTURE.md`'s deployment section if that doc is revisited.
 
-**Stage 2 scoring test coverage.** `scoreRun` (`src/domain/scoring.ts`)
-implements more than the current tests exercise. Confirmed still missing:
-
-- Wrong-pitch note-ons played *before* the tonic anchors
-- A wrong-octave note played *after* anchoring
-- Resynchronization: a later expected pitch skips ahead, marking the
-  skipped steps `missed`
-- Extra note-ons played after step 7 is already matched
-- Per-step fault attribution: that `faults[]` entries and per-step
-  `hardFaultCount` sum to the aggregate
-- Equal-offset events ordered by `sequenceNumber` as tiebreaker
-- Timing deviation boundary values (exactly at tolerance vs. one
-  microsecond over)
-- Timing exclusion window after a hard fault, and the window restarting
-  on a second hard fault
-- Overlap: note-off before/at/after the next note-on, and a missing
-  note-off (`overlapReleaseMissing`)
-- Velocity having no effect on scoring
-- `summary.passed` against `maxTimingFaultsPerRun` /
-  `maxOverlapFaultsPerRun`
+**Stage 2 scoring test coverage: done.** `scoreRun` (`src/domain/scoring.ts`)
+is now covered for wrong-pitch note-ons before the tonic anchors, a
+wrong-octave note after anchoring, resynchronization (a later expected
+pitch skips ahead, marking the skipped steps `missed`), extra note-ons
+after step 7 is already matched, per-step fault attribution (`faults[]`
+entries and per-step `hardFaultCount` summing to the aggregate),
+equal-offset tie-breaking by `sequenceNumber`, timing deviation boundary
+values, the timing exclusion window (and its restart on a second hard
+fault), overlap (note-off before/at/after the next note-on, and a missing
+note-off), velocity having no effect, and `summary.passed` against
+`maxTimingFaultsPerRun`/`maxOverlapFaultsPerRun` — see `tests/scoring.test.ts`.
 
 Client-side velocity-zero → `note_off` normalization
 (`src/client/midi/capture.ts`) is covered: see

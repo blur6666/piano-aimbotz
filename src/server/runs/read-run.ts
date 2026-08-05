@@ -59,7 +59,12 @@ export function readRun(
 
   const originalAssessment = sqlite
     .prepare('SELECT * FROM run_assessments WHERE run_id = ?')
-    .get(runId) as AssessmentRow
+    .get(runId) as AssessmentRow | undefined
+  // Every persisted run gets exactly one original assessment, written in
+  // the same transaction as the run itself (ARCHITECTURE.md); a missing
+  // one is a genuine data-integrity bug, not a "not found" run.
+  if (!originalAssessment)
+    throw new Error(`Missing run_assessments row for run ${runId}`)
 
   const exercise = sqlite
     .prepare(

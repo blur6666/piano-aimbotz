@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { buildApp } from '../src/server/app.js'
+import { applyMigrations } from '../src/server/db/apply-migrations.js'
+import { seedCatalog } from '../src/server/db/seed.js'
 import type { AppConfig } from '../src/server/config.js'
 
 const schema = `CREATE TABLE exercises (id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE, name TEXT NOT NULL, direction TEXT NOT NULL, tonic_pitch_class INTEGER NOT NULL);
@@ -90,6 +92,41 @@ describe('API error envelope', () => {
     expect(JSON.stringify(body)).not.toMatch(
       /exercise_steps|SqliteError|no such table/i
     )
+    await app.close()
+  })
+
+  it('masks a run with no original assessment behind the generic envelope instead of a raw TypeError', async () => {
+    sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+    seedCatalog(sqlite, testConfig)
+    const exerciseId = (
+      sqlite
+        .prepare(
+          `SELECT e.id FROM exercises e
+           JOIN scales s ON s.id = e.scale_id
+           WHERE s.slug = 'c-major' AND e.direction = 'ascending'`
+        )
+        .get() as { id: number }
+    ).id
+    // A run row with no matching run_assessments row: the transactional
+    // submission path never leaves data in this shape, but readRun must
+    // not throw a raw, unguarded TypeError if it ever does.
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, ?, 1000, 60)'
+      )
+      .run(exerciseId)
+    const app = buildApp(sqlite, testConfig)
+
+    const response = await app.inject({ method: 'GET', url: '/api/runs/1' })
+
+    expect(response.statusCode).toBe(500)
+    expect(response.json()).toEqual({
+      error: {
+        code: 'internal_error',
+        message: 'An unexpected error occurred.'
+      }
+    })
     await app.close()
   })
 })

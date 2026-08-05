@@ -40,14 +40,14 @@
 
 *   **[CLARIFICATION] Extra-note debounce**
     *   *Note:* Deferred until real data exists. Needs re-evaluation.
-*   **[CLARIFICATION] readRun undefined guard**
-    *   *Note:* Needs a one-line explicit check.
+*   **[DONE] readRun undefined guard**
+    *   *Note:* One-line explicit check added; missing `run_assessments` now throws a clear internal error instead of a raw `TypeError`. See `tests/error-handling.test.ts`.
 *   **[CLARIFICATION] createRun reads inside the transaction**
     *   *Note:* Needs to match `ARCHITECTURE.md` wording.
 *   **[CLARIFICATION] Doc fixes**
-    *   *Note:* Address startup backfill note, repo-layout drift (`catalog/`, `src/domain/catalog/`, `tests/fixtures/`, `tests/integration/` listed but absent).
-*   **[CLARIFICATION] Stage 2 scoring tests**
-    *   *Note:* 11 specific gaps listed in `AGENTS.md` under "Stage 2 scoring test coverage" (pre-anchor wrong pitch, wrong octave post-anchor, resync/missed, post-step-7 extras, fault attribution sums, tie-break ordering, timing boundaries, exclusion window, overlap cases, velocity no-op, passed gates). The 12th gap that used to live in this list, client-side capture tests, is done — see `tests/client-capture.test.ts`.
+    *   *Note:* Address startup backfill note, repo-layout drift (`tests/fixtures/`, `tests/integration/` listed but absent — `catalog/` and `src/domain/catalog/` now exist for real).
+*   **[DONE] Stage 2 scoring tests**
+    *   *Note:* All 11 gaps covered in `tests/scoring.test.ts` (pre-anchor wrong pitch, wrong octave post-anchor, resync/missed, post-step-7 extras, fault attribution sums, tie-break ordering, timing boundaries, exclusion window, overlap cases, velocity no-op, passed gates).
 
 ---
 
