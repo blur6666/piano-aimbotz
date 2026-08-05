@@ -10,4 +10,6 @@ sqlite.exec(
 )
 const app = buildApp(sqlite)
 const port = Number(process.env.PORT ?? 3000)
-await app.listen({ host: '127.0.0.1', port })
+const host = process.env.HOST ?? '0.0.0.0'
+await app.listen({ host, port })
+console.log(`Piano Scale Trainer listening on http://localhost:${port}`)

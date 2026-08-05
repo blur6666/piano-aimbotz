@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "build": "tsc -b && vite build",
-    "start": "node dist/src/server/index.js",
+    "start": "npm run build && node dist/src/server/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx src/server/db/seed.ts",
