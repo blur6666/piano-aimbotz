@@ -1,0 +1,47 @@
+{
+  "name": "piano-aimbotz",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/src/server/index.js",
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "build": "tsc -b && vite build",
+    "start": "node dist/src/server/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "tsx src/server/db/seed.ts",
+    "migrate": "tsx src/server/db/migrate.ts",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,ts,html}\" \".github/**/*.yml\"",
+    "drizzle:generate": "drizzle-kit generate"
+  },
+  "keywords": [
+    "piano",
+    "practice",
+    "scale-trainer"
+  ],
+  "author": "Your Name <you@example.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/static": "^10.1.2",
+    "@sinclair/typebox": "^0.34.52",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.11.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsx": "^4.23.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "drizzle-kit": "^0.31.10",
+    "prettier": "^3.9.6",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}
