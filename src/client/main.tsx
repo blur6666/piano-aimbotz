@@ -13,17 +13,24 @@ import { requestMidiInputs } from './midi/access.js'
 import { createKeyboardInput } from './midi/keyboardInput.js'
 import { runExercise, type RunSchedule } from './practice/runExercise.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
-import { Keyboard } from './practice/Keyboard.js'
-import { pitchClassesForNoteSpellings } from './practice/noteNames.js'
+import { Keyboard, OCTAVE_COUNT } from './practice/Keyboard.js'
+import { resolveScaleKeys } from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
   if (deviationUs === null) return '—'
   return `${(deviationUs / 1000).toFixed(1)} ms`
 }
 
-// Scope trimmed to the three easiest scales for now (BACKLOG.md); the rest
+// Scope trimmed to the 5 easiest scales for now (BACKLOG.md); the rest
 // of the seeded catalog is unaffected, just hidden from this dropdown.
-const VISIBLE_SCALE_SLUGS = new Set(['c-major', 'f-major', 'g-major'])
+const VISIBLE_SCALE_SLUGS = new Set([
+  'c-major',
+  'f-major',
+  'g-major',
+  'd-major',
+  'e-major',
+  'b-major'
+])
 
 // Remembers the selected MIDI input across reloads (BACKLOG.md). Once a
 // browser has granted Web MIDI permission to this origin, later
@@ -37,13 +44,11 @@ const COMPUTER_KEYBOARD_INPUT_ID = '__computer-keyboard__'
 
 function App() {
   const [exercises, setExercises] = useState<SelectableExercise[]>([])
-  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(
-    null
-  )
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null)
   const [inputs, setInputs] = useState<MIDIInput[]>([])
   const [selectedRealInputId, setSelectedRealInputId] = useState('')
   const [useComputerKeyboard, setUseComputerKeyboard] = useState(false)
-  const [status, setStatus] = useState('Choose a MIDI input to begin.')
+  const [status, setStatus] = useState('')
   const [running, setRunning] = useState(false)
   const [beat, setBeat] = useState<string | null>(null)
   const [faults, setFaults] = useState<number | null>(null)
@@ -57,10 +62,10 @@ function App() {
   const [practiceTempoBpm, setPracticeTempoBpm] = useState(60)
   const inputsRef = useRef<MIDIInput[]>([])
 
-  const exercise =
-    exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
+  const exercise = exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
   const visibleExercises = exercises.filter((candidate) =>
-    VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug)
+    VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
+    candidate.direction === 'ascending'
   )
   const activeInputId = useComputerKeyboard
     ? COMPUTER_KEYBOARD_INPUT_ID
@@ -72,6 +77,7 @@ function App() {
       .catch((error: Error) => {
         setHistory([])
         console.warn(`[history] could not load runs: ${error.message}`)
+        // TODO: raise toast
       })
   }, [])
 
@@ -80,7 +86,8 @@ function App() {
       .then((loaded) => {
         setExercises(loaded)
         const visible = loaded.filter((candidate) =>
-          VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug)
+          VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
+          candidate.direction === 'ascending'
         )
         if (visible.length > 0) setSelectedExerciseId(visible[0].id)
       })
@@ -117,11 +124,13 @@ function App() {
 
   // Best-effort silent reconnect: if this origin already has Web MIDI
   // permission from a previous visit, this resolves without prompting. If
-  // it fails (first visit, denied, unsupported), stay quiet -- the
-  // Connect MIDI button is the explicit first-time path and does surface
+  // it fails (first visit, denied, unsupported), stay quiet -- selecting
+  // the MIDI dropdown is the explicit first-time path and does surface
   // errors.
   useEffect(() => {
-    requestMidiInputs().then(applyAvailableInputs).catch(() => {})
+    requestMidiInputs()
+      .then(applyAvailableInputs)
+      .catch(() => {})
   }, [applyAvailableInputs])
 
   useEffect(() => {
@@ -129,7 +138,7 @@ function App() {
       localStorage.setItem(MIDI_INPUT_STORAGE_KEY, selectedRealInputId)
   }, [selectedRealInputId])
 
-  async function chooseMidi() {
+  async function refreshMidiInputs() {
     try {
       applyAvailableInputs(await requestMidiInputs())
     } catch (error) {
@@ -151,6 +160,18 @@ function App() {
           : 'No MIDI inputs found.'
     )
   }
+
+    function handleMidiSelectChange(selectedId: string) {
+      setSelectedRealInputId(selectedId)
+      if (!selectedId) {
+        setStatus('No MIDI inputs found.')
+        return
+      }
+      const selected = inputsRef.current.find((input) => input.id === selectedId)
+      setStatus(
+        `Input ready: ${selected?.name ?? selectedId}. Press Start when you are ready.`
+      )
+    }
 
   async function openRunDetail(runId: number) {
     try {
@@ -252,20 +273,14 @@ function App() {
   return (
     <main>
       <header>
-        <p className="eyebrow">PRACTICE / STAGE 2</p>
-        <h1>{exercise ? exercise.label : 'No exercise seeded'}</h1>
-        <p className="intro">
-          Eight notes. One steady click. Raw performance captured as you play.
-        </p>
+        <h1>Scales Trainer</h1>
       </header>
       <section className="panel setup">
         <div className="toolbar">
-          <button onClick={chooseMidi} disabled={running}>
-            Connect MIDI
-          </button>
           <select
             value={selectedRealInputId}
-            onChange={(event) => setSelectedRealInputId(event.target.value)}
+            onFocus={refreshMidiInputs}
+            onChange={(event) => handleMidiSelectChange(event.target.value)}
             disabled={running || useComputerKeyboard}
           >
             {inputs.length === 0 && (
@@ -277,31 +292,14 @@ function App() {
               </option>
             ))}
           </select>
-          <label className="keyboard-toggle">
-            <input
-              type="checkbox"
-              checked={useComputerKeyboard}
-              disabled={running}
-              onChange={(event) =>
-                toggleComputerKeyboard(event.target.checked)
-              }
-            />
-            Use computer keyboard as input
-          </label>
           <p className="status" aria-live="polite">
             {status}
           </p>
         </div>
-        {useComputerKeyboard && (
-          <p className="intro keyboard-hint">
-            A S D F G H J K = white keys (C D E F G A B C). W E T Y U = black
-            keys, on the row above.
-          </p>
-        )}
       </section>
       <section className="panel">
         <div className="toolbar">
-          <select
+          <select id="scaleSelector"
             value={selectedExerciseId ?? ''}
             onChange={(event) =>
               setSelectedExerciseId(Number(event.target.value))
@@ -334,57 +332,16 @@ function App() {
               <strong>{exercise?.consecutiveCleanRuns ?? 0}/3</strong>
               <span>Streak</span>
             </div>
-            <div className="stat stat-practice">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={practiceMode}
-                  disabled={running}
-                  onChange={(event) =>
-                    togglePracticeMode(event.target.checked)
-                  }
-                />
-                Unlocked BPM (testing)
-              </label>
-              {practiceMode && (
-                <input
-                  type="number"
-                  min={20}
-                  max={300}
-                  value={practiceTempoBpm}
-                  disabled={running}
-                  onChange={(event) =>
-                    setPracticeTempoBpm(Number(event.target.value))
-                  }
-                />
-              )}
-            </div>
           </div>
-          <label className="keyboard-toggle">
-            <input
-              type="checkbox"
-              checked={showKeyboardDuringTest}
-              onChange={(event) =>
-                setShowKeyboardDuringTest(event.target.checked)
-              }
-            />
-            Show keyboard during test
-          </label>
         </div>
-        {practiceMode && (
-          <p className="intro">
-            Practice mode: runs at the tempo above without saving progress or
-            history. The server's tempo lock (ARCHITECTURE.md) is never
-            bypassed -- practice runs simply aren't submitted.
-          </p>
-        )}
         {running && beat !== null && <div className="count">{beat}</div>}
         {exercise && (running || finalSteps !== null) && (
           <Timeline
             steps={exercise.steps}
             beatMs={
-              runSchedule?.beatMs ??
-              60_000 / (practiceMode ? practiceTempoBpm : exercise.currentTempoBpm)
+              runSchedule?.beatMs ?? 60_000 / (practiceMode 
+                ? practiceTempoBpm 
+                : exercise.currentTempoBpm)
             }
             running={running}
             firstExpectedBeat={runSchedule?.firstExpectedBeat ?? null}
@@ -394,19 +351,13 @@ function App() {
         )}
         {exercise && (!running || showKeyboardDuringTest) && (
           <Keyboard
-            highlightedPitchClasses={pitchClassesForNoteSpellings(
-              exercise.steps.map((step) => step.noteSpelling)
+            scaleKeys={resolveScaleKeys(
+              exercise.steps,
+              exercise.direction,
+              OCTAVE_COUNT
             )}
           />
         )}
-        <div className="notes">
-          {exercise?.steps.map((step, index) => (
-            <div className="note" key={index}>
-              <strong>{step.noteSpelling}</strong>
-              <span>{step.fingerNumber}</span>
-            </div>
-          ))}
-        </div>
         {faults !== null && (
           <div className="result">
             <span>{faults}</span>
@@ -520,6 +471,65 @@ function App() {
               </p>
             )}
           </div>
+        )}
+      </section>
+      <section className="panel dev-tools">
+        <h2>Dev tools</h2>
+        <div className="dev-tools-row">
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={useComputerKeyboard}
+              disabled={running}
+              onChange={(event) => toggleComputerKeyboard(event.target.checked)}
+            />
+            Use computer keyboard as input
+          </label>
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={showKeyboardDuringTest}
+              onChange={(event) =>
+                setShowKeyboardDuringTest(event.target.checked)
+              }
+            />
+            Show keyboard during test
+          </label>
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={practiceMode}
+              disabled={running}
+              onChange={(event) => togglePracticeMode(event.target.checked)}
+            />
+            Unlocked BPM (testing)
+          </label>
+          {practiceMode && (
+            <input
+              type="number"
+              min={20}
+              max={300}
+              value={practiceTempoBpm}
+              disabled={running}
+              onChange={(event) =>
+                setPracticeTempoBpm(Number(event.target.value))
+              }
+            />
+          )}
+        </div>
+        {useComputerKeyboard && (
+          <p className="dev-tools-note">
+              W E T Y U = black keys
+            (A S D ... K) row = white keys from C3 to C4
+            keys, on the row above.
+          </p>
+        )}
+        {practiceMode && (
+          <p className="dev-tools-note">
+            Practice mode: runs at the tempo above without saving progress or
+            history. The server's tempo lock (ARCHITECTURE.md) is never bypassed
+            -- practice runs simply aren't submitted.
+          </p>
         )}
       </section>
     </main>
