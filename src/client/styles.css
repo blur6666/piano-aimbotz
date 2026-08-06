@@ -276,7 +276,7 @@ button.primary {
   color: #e7e7e5;
 }
 .keyboard-figure {
-  margin: 22px 0 34px;
+  margin: 22px 0 14px;
 }
 .keyboard {
   position: relative;
@@ -320,7 +320,7 @@ button.primary {
    so the row reads as a caption of the keyboard above it. */
 .keyboard-labels {
   position: relative;
-  height: 96px;
+  height: 68px;
   margin-top: 10px;
 }
 .keyboard-label {

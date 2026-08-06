@@ -45,8 +45,7 @@ export function Timeline({
     const tick = () => {
       const elapsedMs = performance.now() - firstExpectedBeat
       const fraction = clamp01((elapsedMs + beatMs / 2) / totalMs)
-      if (laserRef.current)
-        laserRef.current.style.left = `${fraction * 100}%`
+      if (laserRef.current) laserRef.current.style.left = `${fraction * 100}%`
       setLaserFraction(fraction)
       frame = requestAnimationFrame(tick)
     }
