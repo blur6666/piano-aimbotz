@@ -28,6 +28,11 @@ export const ExerciseSchema = Type.Object({
     Type.Literal('descending')
   ]),
   currentTempoBpm: Type.Integer({ minimum: 1 }),
+  // The beat grid the next run will be played and scored against: 2 for
+  // straight eighths, 1 for quarters. The client needs it to schedule the
+  // metronome and lay out the timeline; the server still applies its own
+  // value when scoring rather than trusting a submission.
+  notesPerBeat: Type.Integer({ minimum: 1, maximum: 2 }),
   consecutiveCleanRuns: Type.Integer({ minimum: 0 }),
   steps: Type.Array(ExerciseStepSchema)
 })

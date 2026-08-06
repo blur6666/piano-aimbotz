@@ -7,10 +7,9 @@ import type { AppConfig } from '../src/server/config.js'
 
 const testConfig: AppConfig = {
   scoring: {
-    timingToleranceUs: 50_000,
-    overlapToleranceUs: 0,
+    timingToleranceNoteFraction: 0.05,
+    overlapToleranceUs: 30_000,
     maxTimingFaultsPerRun: 0,
-    maxOverlapFaultsPerRun: 0,
     recoveryWindowSteps: 1
   },
   progression: {
@@ -18,7 +17,8 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
-  seedInitialTempoBpm: 60
+  seedInitialTempoBpm: 60,
+  notesPerBeat: 1
 }
 
 describe('GET /api/exercises', () => {
@@ -34,7 +34,11 @@ describe('GET /api/exercises', () => {
 
     expect(
       body.groups.map(
-        (group: { slug: string; progressionOrder: number; scales: unknown[] }) => ({
+        (group: {
+          slug: string
+          progressionOrder: number
+          scales: unknown[]
+        }) => ({
           slug: group.slug,
           progressionOrder: group.progressionOrder,
           scaleCount: group.scales.length
@@ -47,10 +51,7 @@ describe('GET /api/exercises', () => {
     ])
 
     const totalExercises = body.groups.reduce(
-      (
-        sum: number,
-        group: { scales: Array<{ exercises: unknown[] }> }
-      ) =>
+      (sum: number, group: { scales: Array<{ exercises: unknown[] }> }) =>
         sum +
         group.scales.reduce(
           (scaleSum: number, scale: { exercises: unknown[] }) =>
@@ -91,7 +92,9 @@ describe('GET /api/exercises', () => {
       (exercise: { direction: string }) => exercise.direction === 'ascending'
     )
     expect(
-      aFlatAscending.steps.map((step: { fingerNumber: number }) => step.fingerNumber)
+      aFlatAscending.steps.map(
+        (step: { fingerNumber: number }) => step.fingerNumber
+      )
     ).toEqual([3, 4, 1, 2, 3, 1, 2, 3])
 
     await app.close()

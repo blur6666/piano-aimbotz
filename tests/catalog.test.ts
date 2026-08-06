@@ -4,7 +4,11 @@ import { validateCatalog } from '../src/domain/catalog/index.js'
 
 // Mutable mirrors of the real (readonly) catalog types: these tests
 // deliberately mutate fields to construct malformed data.
-type MutableStep = [noteSpelling: string, semitoneOffset: number, fingerNumber: number]
+type MutableStep = [
+  noteSpelling: string,
+  semitoneOffset: number,
+  fingerNumber: number
+]
 type MutableExercise = {
   direction: 'ascending' | 'descending'
   steps: MutableStep[]

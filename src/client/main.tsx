@@ -11,7 +11,12 @@ import {
 } from './api/runs.js'
 import { requestMidiInputs } from './midi/access.js'
 import { createKeyboardInput } from './midi/keyboardInput.js'
-import { runExercise, type RunSchedule } from './practice/runExercise.js'
+import {
+  runExercise,
+  type RunOutcome,
+  type RunSchedule
+} from './practice/runExercise.js'
+import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
 import { Keyboard, OCTAVE_COUNT } from './practice/Keyboard.js'
 import { resolveScaleKeys } from './practice/noteNames.js'
@@ -42,16 +47,21 @@ const MIDI_INPUT_STORAGE_KEY = 'piano-aimbotz:selectedMidiInputId'
 // hardware still play a run via src/client/midi/keyboardInput.ts.
 const COMPUTER_KEYBOARD_INPUT_ID = '__computer-keyboard__'
 
+const METRONOME_VOLUME_STORAGE_KEY = 'piano-aimbotz:metronomeVolume'
+const DEFAULT_METRONOME_VOLUME = 0.5
+
 function App() {
   const [exercises, setExercises] = useState<SelectableExercise[]>([])
-  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null)
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(
+    null
+  )
   const [inputs, setInputs] = useState<MIDIInput[]>([])
   const [selectedRealInputId, setSelectedRealInputId] = useState('')
   const [useComputerKeyboard, setUseComputerKeyboard] = useState(false)
   const [status, setStatus] = useState('')
   const [running, setRunning] = useState(false)
   const [beat, setBeat] = useState<string | null>(null)
-  const [faults, setFaults] = useState<number | null>(null)
+  const [outcome, setOutcome] = useState<RunOutcome | null>(null)
   const [history, setHistory] = useState<RunHistoryEntry[]>([])
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null)
   const [runSchedule, setRunSchedule] = useState<RunSchedule | null>(null)
@@ -59,13 +69,25 @@ function App() {
   const [finalSteps, setFinalSteps] = useState<AssessmentStep[] | null>(null)
   const [showKeyboardDuringTest, setShowKeyboardDuringTest] = useState(true)
   const [practiceMode, setPracticeMode] = useState(false)
-  const [practiceTempoBpm, setPracticeTempoBpm] = useState(60)
+  const [practiceTempoBpm, setPracticeTempoBpm] = useState(80)
+  const [metronomeVolume, setMetronomeVolume] = useState(() => {
+    // Number(null) is 0, so an absent key has to be rejected before the
+    // range check or a first visit silently starts with no click at all.
+    const raw = localStorage.getItem(METRONOME_VOLUME_STORAGE_KEY)
+    if (raw === null) return DEFAULT_METRONOME_VOLUME
+    const saved = Number(raw)
+    return Number.isFinite(saved) && saved >= 0 && saved <= 1
+      ? saved
+      : DEFAULT_METRONOME_VOLUME
+  })
   const inputsRef = useRef<MIDIInput[]>([])
 
-  const exercise = exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
-  const visibleExercises = exercises.filter((candidate) =>
-    VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
-    candidate.direction === 'ascending'
+  const exercise =
+    exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
+  const visibleExercises = exercises.filter(
+    (candidate) =>
+      VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
+      candidate.direction === 'ascending'
   )
   const activeInputId = useComputerKeyboard
     ? COMPUTER_KEYBOARD_INPUT_ID
@@ -85,9 +107,10 @@ function App() {
     fetchExercises()
       .then((loaded) => {
         setExercises(loaded)
-        const visible = loaded.filter((candidate) =>
-          VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
-          candidate.direction === 'ascending'
+        const visible = loaded.filter(
+          (candidate) =>
+            VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
+            candidate.direction === 'ascending'
         )
         if (visible.length > 0) setSelectedExerciseId(visible[0].id)
       })
@@ -138,6 +161,10 @@ function App() {
       localStorage.setItem(MIDI_INPUT_STORAGE_KEY, selectedRealInputId)
   }, [selectedRealInputId])
 
+  useEffect(() => {
+    localStorage.setItem(METRONOME_VOLUME_STORAGE_KEY, String(metronomeVolume))
+  }, [metronomeVolume])
+
   async function refreshMidiInputs() {
     try {
       applyAvailableInputs(await requestMidiInputs())
@@ -161,17 +188,17 @@ function App() {
     )
   }
 
-    function handleMidiSelectChange(selectedId: string) {
-      setSelectedRealInputId(selectedId)
-      if (!selectedId) {
-        setStatus('No MIDI inputs found.')
-        return
-      }
-      const selected = inputsRef.current.find((input) => input.id === selectedId)
-      setStatus(
-        `Input ready: ${selected?.name ?? selectedId}. Press Start when you are ready.`
-      )
+  function handleMidiSelectChange(selectedId: string) {
+    setSelectedRealInputId(selectedId)
+    if (!selectedId) {
+      setStatus('No MIDI inputs found.')
+      return
     }
+    const selected = inputsRef.current.find((input) => input.id === selectedId)
+    setStatus(
+      `Input ready: ${selected?.name ?? selectedId}. Press Start when you are ready.`
+    )
+  }
 
   async function openRunDetail(runId: number) {
     try {
@@ -204,7 +231,7 @@ function App() {
       input = found
     }
     const tempoBpm = practiceMode ? practiceTempoBpm : exercise.currentTempoBpm
-    setFaults(null)
+    setOutcome(null)
     setRunning(true)
     setStatus(practiceMode ? 'Count-in (practice, not saved)' : 'Count-in')
     setRunSchedule(null)
@@ -219,10 +246,12 @@ function App() {
         {
           id: exercise.id,
           tempoBpm,
+          notesPerBeat: exercise.notesPerBeat,
           steps: exercise.steps
         },
         setBeat,
         {
+          metronomeVolume,
           onScheduled: setRunSchedule,
           onLiveNote: (event) => {
             if (event.type !== 'note_on') return
@@ -239,26 +268,26 @@ function App() {
         setStatus(`Practice run complete at ${tempoBpm} BPM. Not saved.`)
         return
       }
-      setFinalSteps(result.originalAssessment.steps)
-      const hardFaultCount = result.originalAssessment.summary.hardFaultCount
-      setFaults(hardFaultCount)
+      const { originalAssessment, progress } = result.response
+      setFinalSteps(originalAssessment.steps)
+      setOutcome(result)
       setStatus(
-        `Run saved. ${hardFaultCount} wrong notes. Tempo ${result.progress.currentTempoBpm} BPM, streak ${result.progress.consecutiveCleanRuns}/3.`
+        `Run saved. Tempo ${progress.currentTempoBpm} BPM, streak ${progress.consecutiveCleanRuns}/3.`
       )
       setExercises((current) =>
         current.map((candidate) =>
           candidate.id === exercise.id
             ? {
                 ...candidate,
-                currentTempoBpm: result.progress.currentTempoBpm,
-                consecutiveCleanRuns: result.progress.consecutiveCleanRuns
+                currentTempoBpm: progress.currentTempoBpm,
+                consecutiveCleanRuns: progress.consecutiveCleanRuns
               }
             : candidate
         )
       )
       loadHistory(exercise.id)
       console.info(
-        `[MIDI] run saved: ${hardFaultCount} wrong notes, passed=${result.originalAssessment.summary.passed}`
+        `[MIDI] run saved: ${originalAssessment.summary.hardFaultCount} wrong notes, passed=${originalAssessment.summary.passed}`
       )
     } catch (error) {
       setRunning(false)
@@ -299,7 +328,8 @@ function App() {
       </section>
       <section className="panel">
         <div className="toolbar">
-          <select id="scaleSelector"
+          <select
+            id="scaleSelector"
             value={selectedExerciseId ?? ''}
             onChange={(event) =>
               setSelectedExerciseId(Number(event.target.value))
@@ -323,6 +353,20 @@ function App() {
           >
             Start run
           </button>
+          <label className="volume">
+            <span>Click</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={metronomeVolume}
+              disabled={running}
+              onChange={(event) =>
+                setMetronomeVolume(Number(event.target.value))
+              }
+            />
+          </label>
           <div className="stats-row">
             <div className="stat">
               <strong>{exercise?.currentTempoBpm ?? '—'}</strong>
@@ -338,10 +382,11 @@ function App() {
         {exercise && (running || finalSteps !== null) && (
           <Timeline
             steps={exercise.steps}
-            beatMs={
-              runSchedule?.beatMs ?? 60_000 / (practiceMode 
-                ? practiceTempoBpm 
-                : exercise.currentTempoBpm)
+            noteMs={
+              runSchedule?.noteMs ??
+              60_000 /
+                ((practiceMode ? practiceTempoBpm : exercise.currentTempoBpm) *
+                  exercise.notesPerBeat)
             }
             running={running}
             firstExpectedBeat={runSchedule?.firstExpectedBeat ?? null}
@@ -358,14 +403,29 @@ function App() {
             )}
           />
         )}
-        {faults !== null && (
-          <div className="result">
-            <span>{faults}</span>
-            <div>
-              <strong>wrong notes</strong>
-              <small>Raw MIDI events saved for this run.</small>
-            </div>
-          </div>
+        {exercise && outcome && !running && (
+          <RunResult
+            exerciseSteps={exercise.steps}
+            assessmentSteps={outcome.response.originalAssessment.steps}
+            faults={outcome.response.originalAssessment.faults}
+            events={outcome.events}
+            tempoBpm={outcome.response.run.tempoBpm}
+            notesPerBeat={exercise.notesPerBeat}
+            timingToleranceUs={
+              outcome.response.originalAssessment.timingToleranceUs
+            }
+            maxTimingFaultsPerRun={
+              outcome.response.originalAssessment.scoringParameters
+                .maxTimingFaultsPerRun
+            }
+            hardFaultCount={
+              outcome.response.originalAssessment.summary.hardFaultCount
+            }
+            timingFaultCount={
+              outcome.response.originalAssessment.summary.timingFaultCount
+            }
+            passed={outcome.response.originalAssessment.summary.passed}
+          />
         )}
       </section>
       <section className="panel history">
@@ -519,8 +579,7 @@ function App() {
         </div>
         {useComputerKeyboard && (
           <p className="dev-tools-note">
-              W E T Y U = black keys
-            (A S D ... K) row = white keys from C3 to C4
+            W E T Y U = black keys (A S D ... K) row = white keys from C3 to C4
             keys, on the row above.
           </p>
         )}

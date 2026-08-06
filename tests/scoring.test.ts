@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { scoreRun, type Assessment, type ScoringConfig } from '../src/domain/scoring.js'
+import {
+  scoreRun,
+  type Assessment,
+  type ScoringConfig
+} from '../src/domain/scoring.js'
 
 const cMajor = [60, 62, 64, 65, 67, 69, 71, 72]
 const cMajorOffsets = cMajor.map((pitch) => pitch - 60)
 
 const hardFaultOnlyConfig: ScoringConfig = {
-  timingToleranceUs: Number.MAX_SAFE_INTEGER,
+  timingToleranceNoteFraction: 1_000,
   overlapToleranceUs: Number.MAX_SAFE_INTEGER,
   maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
-  maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
   recoveryWindowSteps: 0
 }
 
@@ -38,6 +41,7 @@ function score(
       }))
     },
     tempoBpm: 60,
+    notesPerBeat: 1,
     events: events.map((event, index) => ({
       sequenceNumber: event.sequenceNumber ?? index,
       offsetUs: event.offsetUs,
@@ -66,6 +70,7 @@ function countHardFaults(
       }))
     },
     tempoBpm: 60,
+    notesPerBeat: 1,
     events: events.map((event, sequenceNumber) => ({
       ...event,
       sequenceNumber,
@@ -129,10 +134,9 @@ describe('descending exercises', () => {
     const descendingOffsets = [0, -1, -3, -5, -7, -8, -10, -12]
     const anchorPitch = 72 // upper C
     const config = {
-      timingToleranceUs: Number.MAX_SAFE_INTEGER,
+      timingToleranceNoteFraction: 1_000,
       overlapToleranceUs: Number.MAX_SAFE_INTEGER,
       maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
-      maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
       recoveryWindowSteps: 0
     }
     const assessment = scoreRun({
@@ -146,6 +150,7 @@ describe('descending exercises', () => {
         }))
       },
       tempoBpm: 60,
+      notesPerBeat: 1,
       events: descendingOffsets.map((offset, index) => ({
         sequenceNumber: index,
         offsetUs: index * 1_000_000,
@@ -171,13 +176,11 @@ describe('wrong pitch before the tonic anchors', () => {
       { type: 'note_on', midiPitch: 61, offsetUs: 0 }, // C#, wrong pitch class
       { type: 'note_on', midiPitch: 65, offsetUs: 500_000 }, // F, wrong pitch class
       { type: 'note_on', midiPitch: 60, offsetUs: 1_000_000 }, // C, anchors
-      ...cMajor
-        .slice(1)
-        .map((midiPitch, index) => ({
-          type: 'note_on' as const,
-          midiPitch,
-          offsetUs: (index + 2) * 1_000_000
-        }))
+      ...cMajor.slice(1).map((midiPitch, index) => ({
+        type: 'note_on' as const,
+        midiPitch,
+        offsetUs: (index + 2) * 1_000_000
+      }))
     ])
 
     expect(assessment.summary.hardFaultCount).toBe(2)
@@ -203,13 +206,11 @@ describe('wrong octave after anchoring', () => {
       { type: 'note_on', midiPitch: 60, offsetUs: 0 }, // C, anchors
       { type: 'note_on', midiPitch: 74, offsetUs: 1_000_000 }, // D one octave up
       { type: 'note_on', midiPitch: 62, offsetUs: 1_500_000 }, // correct D
-      ...cMajor
-        .slice(2)
-        .map((midiPitch, index) => ({
-          type: 'note_on' as const,
-          midiPitch,
-          offsetUs: (index + 2) * 1_000_000
-        }))
+      ...cMajor.slice(2).map((midiPitch, index) => ({
+        type: 'note_on' as const,
+        midiPitch,
+        offsetUs: (index + 2) * 1_000_000
+      }))
     ])
 
     expect(assessment.summary.hardFaultCount).toBe(1)
@@ -313,7 +314,12 @@ describe('equal-offset tie-break', () => {
     // producing an 'extra' fault instead of a 'duplicate' one.
     const assessment = score([
       { type: 'note_on', midiPitch: 60, offsetUs: 0, sequenceNumber: 0 }, // C, anchors
-      { type: 'note_on', midiPitch: 62, offsetUs: 1_000_000, sequenceNumber: 5 }, // D
+      {
+        type: 'note_on',
+        midiPitch: 62,
+        offsetUs: 1_000_000,
+        sequenceNumber: 5
+      }, // D
       { type: 'note_on', midiPitch: 60, offsetUs: 1_000_000, sequenceNumber: 3 } // duplicate C, same offset
     ])
 
@@ -336,7 +342,8 @@ describe('timing deviation boundaries', () => {
         { type: 'note_on', midiPitch: 62, offsetUs: 1_050_000 }, // D, +50,000us
         { type: 'note_on', midiPitch: 64, offsetUs: 2_050_001 } // E, +50,001us
       ],
-      { timingToleranceUs: 50_000 }
+      // 5% of the 1,000,000us beat at 60bpm.
+      { timingToleranceNoteFraction: 0.05 }
     )
 
     expect(assessment.steps[1].timingDeviationUs).toBe(50_000)
@@ -422,6 +429,7 @@ describe('velocity', () => {
         }))
       },
       tempoBpm: 60,
+      notesPerBeat: 1,
       events: events.map((event, index) => ({
         ...event,
         sequenceNumber: index,
@@ -441,6 +449,7 @@ describe('velocity', () => {
         }))
       },
       tempoBpm: 60,
+      notesPerBeat: 1,
       events: events.map((event, index) => ({
         ...event,
         sequenceNumber: index,
@@ -468,7 +477,7 @@ describe('summary.passed against configured maxima', () => {
     ]
 
     const atMax = score(events, {
-      timingToleranceUs: 0,
+      timingToleranceNoteFraction: 0,
       maxTimingFaultsPerRun: 2
     })
     expect(atMax.summary.timingFaultCount).toBe(2)
@@ -476,14 +485,14 @@ describe('summary.passed against configured maxima', () => {
     expect(atMax.summary.passed).toBe(true)
 
     const overMax = score(events, {
-      timingToleranceUs: 0,
+      timingToleranceNoteFraction: 0,
       maxTimingFaultsPerRun: 1
     })
     expect(overMax.summary.timingFaultCount).toBe(2)
     expect(overMax.summary.passed).toBe(false)
   })
 
-  it('passes at the configured overlap-fault maximum and fails one over it', () => {
+  it('reports overlap faults without letting them fail an otherwise clean run', () => {
     // Every note gets an explicit, clean release before the next onset
     // except C and D, which deliberately overlap D and E respectively. A
     // missing release always faults regardless of tolerance, so every
@@ -506,19 +515,102 @@ describe('summary.passed against configured maxima', () => {
       { type: 'note_on', midiPitch: 72, offsetUs: 7_000_000 }
     ]
 
-    const atMax = score(events, {
-      overlapToleranceUs: 0,
-      maxOverlapFaultsPerRun: 2
-    })
-    expect(atMax.summary.overlapFaultCount).toBe(2)
-    expect(atMax.summary.hardFaultCount).toBe(0)
-    expect(atMax.summary.passed).toBe(true)
+    const assessment = score(events, { overlapToleranceUs: 0 })
+    expect(assessment.summary.overlapFaultCount).toBe(2)
+    expect(assessment.steps[1].overlapFault).toBe(true)
+    expect(assessment.steps[1].overlapDurationUs).toBe(200_000)
+    expect(assessment.summary.hardFaultCount).toBe(0)
+    // Overlap is reported per step but deliberately does not gate: no
+    // defensible tolerance exists yet, and gating on it at zero tolerance
+    // made every real run unpassable.
+    expect(assessment.summary.passed).toBe(true)
+  })
 
-    const overMax = score(events, {
-      overlapToleranceUs: 0,
-      maxOverlapFaultsPerRun: 1
+  it('resolves the timing tolerance against the note interval, so the same fraction tightens with tempo and with notes per beat', () => {
+    const config: ScoringConfig = {
+      ...hardFaultOnlyConfig,
+      timingToleranceNoteFraction: 0.1,
+      maxTimingFaultsPerRun: 0
+    }
+    // Second note played 60ms after its expected slot, whatever that slot is.
+    const at = (tempoBpm: number, notesPerBeat: number) => {
+      const noteIntervalUs = 60_000_000 / (tempoBpm * notesPerBeat)
+      return scoreRun({
+        exercise: {
+          direction: 'ascending',
+          tonicPitchClass: 0,
+          steps: cMajorOffsets.map((semitoneOffset, stepIndex) => ({
+            stepIndex,
+            semitoneOffset,
+            fingerNumber: 1
+          }))
+        },
+        tempoBpm,
+        notesPerBeat,
+        events: [
+          { type: 'note_on' as const, midiPitch: 60, offsetUs: 0 },
+          {
+            type: 'note_on' as const,
+            midiPitch: 62,
+            offsetUs: noteIntervalUs + 60_000
+          }
+        ].map((event, sequenceNumber) => ({
+          ...event,
+          sequenceNumber,
+          velocity: 100
+        })),
+        config,
+        algorithmVersion: 'test'
+      })
+    }
+
+    // Quarters at 60bpm: 1000ms between notes, 100ms window.
+    const quartersSlow = at(60, 1)
+    expect(quartersSlow.timingToleranceUs).toBe(100_000)
+    expect(quartersSlow.steps[1].timingFault).toBe(false)
+
+    // Same tempo, but eighths halve the interval and so halve the window.
+    const eighthsSlow = at(60, 2)
+    expect(eighthsSlow.timingToleranceUs).toBe(50_000)
+    expect(eighthsSlow.steps[1].timingFault).toBe(true)
+
+    // Doubling the tempo halves it again.
+    const quartersFast = at(120, 1)
+    expect(quartersFast.timingToleranceUs).toBe(50_000)
+    expect(quartersFast.steps[1].timingFault).toBe(true)
+  })
+
+  it('places expected notes half a beat apart when there are two notes per beat', () => {
+    const assessment = scoreRun({
+      exercise: {
+        direction: 'ascending',
+        tonicPitchClass: 0,
+        steps: cMajorOffsets.map((semitoneOffset, stepIndex) => ({
+          stepIndex,
+          semitoneOffset,
+          fingerNumber: 1
+        }))
+      },
+      tempoBpm: 80,
+      notesPerBeat: 2,
+      // Eight notes played exactly on a 375ms grid: 80bpm is a 750ms beat.
+      events: cMajor.map((midiPitch, index) => ({
+        sequenceNumber: index,
+        offsetUs: Math.round(index * 375_000),
+        type: 'note_on' as const,
+        midiPitch,
+        velocity: 100
+      })),
+      config: { ...hardFaultOnlyConfig, maxTimingFaultsPerRun: 0 },
+      algorithmVersion: 'test'
     })
-    expect(overMax.summary.overlapFaultCount).toBe(2)
-    expect(overMax.summary.passed).toBe(false)
+
+    expect(assessment.steps.map((step) => step.expectedOffsetUs)).toEqual([
+      0, 375_000, 750_000, 1_125_000, 1_500_000, 1_875_000, 2_250_000, 2_625_000
+    ])
+    expect(assessment.summary.hardFaultCount).toBe(0)
+    expect(assessment.steps.every((step) => step.timingDeviationUs === 0)).toBe(
+      true
+    )
   })
 })

@@ -19,6 +19,7 @@ type MissingRunRow = {
   id: number
   exercise_id: number
   tempo_bpm: number
+  notes_per_beat: number
 }
 
 type ExerciseRow = {
@@ -46,7 +47,7 @@ export function backfillMissingAssessments(
 ): number[] {
   const missing = sqlite
     .prepare(
-      `SELECT r.id, r.exercise_id, r.tempo_bpm
+      `SELECT r.id, r.exercise_id, r.tempo_bpm, r.notes_per_beat
        FROM runs r
        LEFT JOIN run_assessments a ON a.run_id = r.id
        WHERE a.run_id IS NULL
@@ -95,6 +96,7 @@ export function backfillMissingAssessments(
         }))
       },
       tempoBpm: run.tempo_bpm,
+      notesPerBeat: run.notes_per_beat,
       events: events.map((event) => ({
         sequenceNumber: event.sequence_number,
         offsetUs: event.offset_us,

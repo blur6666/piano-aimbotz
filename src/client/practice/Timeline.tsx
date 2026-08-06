@@ -9,7 +9,9 @@ export type LiveNote = {
 
 export type TimelineProps = {
   steps: Array<{ noteSpelling: string }>
-  beatMs: number
+  // Spacing between consecutive expected notes, which is the beat divided
+  // by notesPerBeat -- the strip is laid out in notes, not beats.
+  noteMs: number
   running: boolean
   firstExpectedBeat: number | null
   liveNotes: LiveNote[]
@@ -25,11 +27,11 @@ export type TimelineProps = {
 // picture always wins over the live guess.
 //
 // A pad's horizontal center is "perfect timing" for that step, matching
-// the spec's chosen reference point. Total strip width spans 8 pads (one
-// beatMs each), pad i centered at firstExpectedBeat + i*beatMs.
+// the spec's chosen reference point. The strip spans one pad per expected
+// note (noteMs each), pad i centered at firstExpectedBeat + i*noteMs.
 export function Timeline({
   steps,
-  beatMs,
+  noteMs,
   running,
   firstExpectedBeat,
   liveNotes,
@@ -37,25 +39,25 @@ export function Timeline({
 }: TimelineProps) {
   const laserRef = useRef<HTMLDivElement>(null)
   const [laserFraction, setLaserFraction] = useState(0)
+  const stepCount = steps.length
+  const totalMs = stepCount * noteMs
 
   useEffect(() => {
-    if (!running || firstExpectedBeat === null || beatMs <= 0) return
+    if (!running || firstExpectedBeat === null || noteMs <= 0) return
     let frame: number
-    const totalMs = 8 * beatMs
     const tick = () => {
       const elapsedMs = performance.now() - firstExpectedBeat
-      const fraction = clamp01((elapsedMs + beatMs / 2) / totalMs)
+      const fraction = clamp01((elapsedMs + noteMs / 2) / totalMs)
       if (laserRef.current) laserRef.current.style.left = `${fraction * 100}%`
       setLaserFraction(fraction)
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [running, firstExpectedBeat, beatMs])
+  }, [running, firstExpectedBeat, noteMs, totalMs])
 
-  const totalMs = 8 * beatMs
   const fractionForOffsetUs = (offsetUs: number) =>
-    clamp01((offsetUs / 1000 + beatMs / 2) / totalMs)
+    clamp01((offsetUs / 1000 + noteMs / 2) / totalMs)
 
   const markers: Array<{
     key: string
@@ -66,9 +68,9 @@ export function Timeline({
     ? finalSteps.map((step, index) => ({
         key: `final-${index}`,
         fraction: step.missed
-          ? (index + 0.5) / 8
+          ? (index + 0.5) / stepCount
           : fractionForOffsetUs(
-              index * beatMs * 1000 + (step.timingDeviationUs ?? 0)
+              index * noteMs * 1000 + (step.timingDeviationUs ?? 0)
             ),
         label: steps[index]?.noteSpelling ?? '?',
         kind: step.missed ? 'miss' : 'hit'
@@ -94,7 +96,7 @@ export function Timeline({
           <div
             key={`target-${index}`}
             className="timeline-target"
-            style={{ left: `${((index + 0.5) / 8) * 100}%` }}
+            style={{ left: `${((index + 0.5) / stepCount) * 100}%` }}
           />
         ))}
         {running && (

@@ -177,10 +177,7 @@ function validateScaleExercises(scale: CatalogScale): void {
       `Scale "${scale.slug}" must have exactly 2 exercises (ascending and descending), found ${scale.exercises.length}.`
     )
   const directions = scale.exercises.map((exercise) => exercise.direction)
-  if (
-    !directions.includes('ascending') ||
-    !directions.includes('descending')
-  )
+  if (!directions.includes('ascending') || !directions.includes('descending'))
     throw new Error(
       `Scale "${scale.slug}" must have exactly one ascending and one descending exercise, found directions [${directions.join(', ')}].`
     )

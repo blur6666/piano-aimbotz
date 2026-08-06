@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type Database from 'better-sqlite3'
+import type { AppConfig } from '../config.js'
 import type {
   Exercise,
   ExerciseListResponse,
@@ -28,7 +29,8 @@ type StepRow = {
 
 export function registerExerciseRoutes(
   app: FastifyInstance,
-  sqlite: Database.Database
+  sqlite: Database.Database,
+  config: AppConfig
 ): void {
   app.get('/api/exercises', async (_request, reply) => {
     const exerciseCount = sqlite
@@ -88,6 +90,7 @@ export function registerExerciseRoutes(
         id: row.exercise_id,
         direction: row.direction,
         currentTempoBpm: row.current_tempo_bpm,
+        notesPerBeat: config.notesPerBeat,
         consecutiveCleanRuns: row.consecutive_clean_runs,
         steps: steps.map((step) => ({
           stepIndex: step.step_index,

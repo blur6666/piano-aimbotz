@@ -9,6 +9,7 @@ type RunRow = {
   exercise_id: number
   performed_at_ms: number
   tempo_bpm: number
+  notes_per_beat: number
 }
 
 type AssessmentRow = {
@@ -52,7 +53,7 @@ export function readRun(
 ) {
   const run = sqlite
     .prepare(
-      'SELECT id, exercise_id, performed_at_ms, tempo_bpm FROM runs WHERE id = ?'
+      'SELECT id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat FROM runs WHERE id = ?'
     )
     .get(runId) as RunRow | undefined
   if (!run) throw new NotFoundError('Run not found.')
@@ -96,6 +97,10 @@ export function readRun(
       }))
     },
     tempoBpm: run.tempo_bpm,
+    // The grid the run was actually played against, not the current
+    // configuration -- re-scoring an old run must not silently rewrite the
+    // beat spacing it was performed on.
+    notesPerBeat: run.notes_per_beat,
     events: events.map((event) => ({
       sequenceNumber: event.sequence_number,
       offsetUs: event.offset_us,

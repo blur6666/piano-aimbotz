@@ -111,12 +111,13 @@ export function Keyboard({ scaleKeys }: KeyboardProps) {
           return (
             <div
               className={
-                'keyboard-label' + (isBlack ? ' keyboard-label-black' : '')}
+                'keyboard-label' + (isBlack ? ' keyboard-label-black' : '')
+              }
               key={key.stepIndex}
               style={{ left: `${center}%` }}
             >
               <strong>{key.noteSpelling}</strong>
-              <span className={(key.fingerNumber == 1 ? 'thumb' : '')}>
+              <span className={key.fingerNumber == 1 ? 'thumb' : ''}>
                 {key.fingerNumber}
               </span>
             </div>

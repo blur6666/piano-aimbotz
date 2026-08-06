@@ -5,6 +5,12 @@ export type AppConfig = {
   scoring: ScoringConfig
   progression: ProgressionPolicy
   seedInitialTempoBpm: number
+  // Applied to every new run and stored on the run row. Not a per-exercise
+  // column: every exercise currently uses the same grid, and SPEC.md says
+  // to pick the simple thing where a simple and a general one both work.
+  // Promote it to a column when an exercise genuinely needs a different
+  // grid from its neighbours.
+  notesPerBeat: number
 }
 
 class ConfigError extends Error {}
@@ -21,6 +27,22 @@ function requireInt(
   if (!Number.isInteger(value) || value < min)
     throw new ConfigError(
       `Invalid configuration value for ${name}: expected an integer >= ${min}, got ${raw}`
+    )
+  return value
+}
+
+function requireFraction(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  { max }: { max: number }
+): number {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '')
+    throw new ConfigError(`Missing required configuration value: ${name}`)
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < 0 || value > max)
+    throw new ConfigError(
+      `Invalid configuration value for ${name}: expected a number between 0 and ${max}, got ${raw}`
     )
   return value
 }
@@ -42,20 +64,20 @@ function requireEnum<T extends string>(
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const scoring: ScoringConfig = {
-    timingToleranceUs: requireInt(env, 'SCORING_TIMING_TOLERANCE_US', {
-      min: 0
-    }),
+    // Capped at 0.5: half a note interval of tolerance means a note landing
+    // nearer its neighbour than its own slot would still pass, which makes
+    // the measurement meaningless rather than merely lenient.
+    timingToleranceNoteFraction: requireFraction(
+      env,
+      'SCORING_TIMING_TOLERANCE_NOTE_FRACTION',
+      { max: 0.5 }
+    ),
     overlapToleranceUs: requireInt(env, 'SCORING_OVERLAP_TOLERANCE_US', {
       min: 0
     }),
     maxTimingFaultsPerRun: requireInt(
       env,
       'SCORING_MAX_TIMING_FAULTS_PER_RUN',
-      { min: 0 }
-    ),
-    maxOverlapFaultsPerRun: requireInt(
-      env,
-      'SCORING_MAX_OVERLAP_FAULTS_PER_RUN',
       { min: 0 }
     ),
     recoveryWindowSteps: requireInt(env, 'SCORING_RECOVERY_WINDOW_STEPS', {
@@ -66,6 +88,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const seedInitialTempoBpm = requireInt(env, 'SEED_INITIAL_TEMPO_BPM', {
     min: 1
   })
+  const notesPerBeat = requireInt(env, 'EXERCISE_NOTES_PER_BEAT', { min: 1 })
+  // Mirrors the CHECK constraint in migrations/0007: a value the database
+  // would reject should fail at startup, not on the first run submission.
+  if (notesPerBeat !== 1 && notesPerBeat !== 2)
+    throw new ConfigError(
+      `Invalid configuration value for EXERCISE_NOTES_PER_BEAT: expected 1 (quarters) or 2 (eighths), got ${notesPerBeat}`
+    )
   const tempoIncrementBpm = requireInt(env, 'PROGRESSION_TEMPO_INCREMENT_BPM', {
     min: 1
   })
@@ -102,7 +131,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           }
         })()
 
-  return { scoring, progression, seedInitialTempoBpm }
+  return { scoring, progression, seedInitialTempoBpm, notesPerBeat }
 }
 
 export function assertMinimumTempoAgainstExistingProgress(

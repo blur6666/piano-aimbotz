@@ -9,7 +9,16 @@ export type AssessmentStep = {
   timingDeviationUs: number | null
   timingExcluded: boolean
   timingFault: boolean
+  overlapDurationUs: number | null
+  overlapReleaseMissing: boolean
   overlapFault: boolean
+}
+
+export type ScoringParameters = {
+  timingToleranceNoteFraction: number
+  overlapToleranceUs: number
+  maxTimingFaultsPerRun: number
+  recoveryWindowSteps: number
 }
 
 export type AssessmentFault = {
@@ -26,6 +35,9 @@ export type SubmitRunResponse = {
     tempoBpm: number
   }
   originalAssessment: {
+    scoringParameters: ScoringParameters
+    // `timingToleranceBeatFraction` resolved against this run's tempo.
+    timingToleranceUs: number
     steps: AssessmentStep[]
     faults: AssessmentFault[]
     summary: {

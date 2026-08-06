@@ -8,7 +8,10 @@ function fakeInput(): MIDIInput {
 }
 
 function message(timeStamp: number, ...data: number[]): MIDIMessageEvent {
-  return { data: Uint8Array.from(data), timeStamp } as unknown as MIDIMessageEvent
+  return {
+    data: Uint8Array.from(data),
+    timeStamp
+  } as unknown as MIDIMessageEvent
 }
 
 // Deliver through the input the way the browser does, so a detached handler
@@ -77,7 +80,10 @@ describe('startCapture', () => {
   it('ignores messages without data', () => {
     const input = fakeInput()
     const capture = startCapture(input, 0)
-    input.onmidimessage!({ data: null, timeStamp: 5 } as unknown as MIDIMessageEvent)
+    input.onmidimessage!({
+      data: null,
+      timeStamp: 5
+    } as unknown as MIDIMessageEvent)
     expect(capture.events).toHaveLength(0)
   })
 
@@ -120,6 +126,13 @@ describe('runExercise submission', () => {
   const submitResponse: SubmitRunResponse = {
     run: { id: 1, exerciseId: 7, firstExpectedBeatAtMs: 0, tempoBpm: 60 },
     originalAssessment: {
+      scoringParameters: {
+        timingToleranceNoteFraction: 0.1,
+        overlapToleranceUs: 30_000,
+        maxTimingFaultsPerRun: 0,
+        recoveryWindowSteps: 1
+      },
+      timingToleranceUs: 100_000,
       steps: Array.from({ length: 8 }, (_, stepIndex) => ({
         stepIndex,
         expectedMidiPitch: 60 + stepIndex,
@@ -129,6 +142,8 @@ describe('runExercise submission', () => {
         timingDeviationUs: 0,
         timingExcluded: false,
         timingFault: false,
+        overlapDurationUs: null,
+        overlapReleaseMissing: false,
         overlapFault: false
       })),
       faults: [],
@@ -183,7 +198,7 @@ describe('runExercise submission', () => {
     const beats: string[] = []
     const runPromise = runExercise(
       input,
-      { id: 7, tempoBpm: 60, steps },
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
       (label) => beats.push(label)
     )
 
@@ -195,7 +210,13 @@ describe('runExercise submission', () => {
     // Capture window: 4 count-in + 8 scale beats + 1 tail beat at 60 BPM.
     await vi.advanceTimersByTimeAsync(13_000)
     const result = await runPromise
-    expect(result).toEqual(submitResponse)
+    expect(result?.response).toEqual(submitResponse)
+    // The captured events come back with the response so the end-of-round
+    // display can name the pitch actually played for each hard fault; the
+    // server does not echo them on submit.
+    expect(result?.events).toEqual(
+      JSON.parse(fetchMock.mock.calls[0][1].body).events
+    )
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0]

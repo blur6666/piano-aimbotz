@@ -6,10 +6,9 @@ import type { AppConfig } from '../src/server/config.js'
 
 const testConfig: AppConfig = {
   scoring: {
-    timingToleranceUs: 50_000,
-    overlapToleranceUs: 0,
+    timingToleranceNoteFraction: 0.05,
+    overlapToleranceUs: 30_000,
     maxTimingFaultsPerRun: 0,
-    maxOverlapFaultsPerRun: 0,
     recoveryWindowSteps: 1
   },
   progression: {
@@ -17,7 +16,8 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
-  seedInitialTempoBpm: 60
+  seedInitialTempoBpm: 60,
+  notesPerBeat: 1
 }
 
 function exerciseIdFor(

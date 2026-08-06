@@ -87,6 +87,10 @@ export function createRun(
       }))
     },
     tempoBpm: body.tempoBpm,
+    // The client never chooses the beat grid; the server applies its own
+    // configured value and records it on the run, the same way the tempo is
+    // validated rather than trusted.
+    notesPerBeat: config.notesPerBeat,
     events: body.events,
     config: config.scoring,
     algorithmVersion: ALGORITHM_VERSION
@@ -95,9 +99,14 @@ export function createRun(
   const transaction = sqlite.transaction(() => {
     const result = sqlite
       .prepare(
-        'INSERT INTO runs (exercise_id, performed_at_ms, tempo_bpm) VALUES (?, ?, ?)'
+        'INSERT INTO runs (exercise_id, performed_at_ms, tempo_bpm, notes_per_beat) VALUES (?, ?, ?, ?)'
       )
-      .run(body.exerciseId, body.firstExpectedBeatAtMs, body.tempoBpm)
+      .run(
+        body.exerciseId,
+        body.firstExpectedBeatAtMs,
+        body.tempoBpm,
+        config.notesPerBeat
+      )
     const runId = Number(result.lastInsertRowid)
 
     const insertEvent = sqlite.prepare(

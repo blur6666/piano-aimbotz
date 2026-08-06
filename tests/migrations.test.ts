@@ -6,7 +6,10 @@ import { MIGRATION_FILES } from '../src/server/db/migration-files.js'
 import { applyMigrations } from '../src/server/db/apply-migrations.js'
 
 function readMigration(filename: string): string {
-  return fs.readFileSync(path.join(process.cwd(), 'migrations', filename), 'utf8')
+  return fs.readFileSync(
+    path.join(process.cwd(), 'migrations', filename),
+    'utf8'
+  )
 }
 
 describe('applyMigrations', () => {
@@ -55,15 +58,30 @@ describe('applyMigrations', () => {
   it('migration 0006 seeds the group-1/c-major scale that pre-existing exercises rely on', () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
-    expect(sqlite.prepare('SELECT slug, name, progression_order FROM progression_groups').all()).toEqual([
-      { slug: 'group-1', name: 'Group 1 — shared fingering', progression_order: 1 }
+    expect(
+      sqlite
+        .prepare('SELECT slug, name, progression_order FROM progression_groups')
+        .all()
+    ).toEqual([
+      {
+        slug: 'group-1',
+        name: 'Group 1 — shared fingering',
+        progression_order: 1
+      }
     ])
     expect(
       sqlite
-        .prepare('SELECT slug, display_name, tonic_pitch_class, position_in_group FROM scales')
+        .prepare(
+          'SELECT slug, display_name, tonic_pitch_class, position_in_group FROM scales'
+        )
         .all()
     ).toEqual([
-      { slug: 'c-major', display_name: 'C major', tonic_pitch_class: 0, position_in_group: 1 }
+      {
+        slug: 'c-major',
+        display_name: 'C major',
+        tonic_pitch_class: 0,
+        position_in_group: 1
+      }
     ])
     sqlite.close()
   })
@@ -113,7 +131,9 @@ describe('applyMigrations', () => {
       .prepare('SELECT id FROM scales WHERE slug = ?')
       .get('c-major') as { id: number }
     expect(
-      sqlite.prepare('SELECT id, scale_id, direction FROM exercises ORDER BY id').all()
+      sqlite
+        .prepare('SELECT id, scale_id, direction FROM exercises ORDER BY id')
+        .all()
     ).toEqual([
       { id: 1, scale_id: scale.id, direction: 'ascending' },
       { id: 2, scale_id: scale.id, direction: 'descending' }
@@ -123,6 +143,47 @@ describe('applyMigrations', () => {
     ).toEqual([{ exercise_id: 1, step_index: 0 }])
     expect(sqlite.prepare('SELECT id FROM runs').all()).toEqual([{ id: 1 }])
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
+
+    sqlite.close()
+  })
+
+  it('migration 0007 backfills existing runs as one note per beat and rejects an unsupported grid', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+
+    const target = '0007_runs_notes_per_beat.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    // A run recorded before the grid was configurable: it was played one
+    // note per beat, and re-scoring it later must keep reading it that way.
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+
+    expect(sqlite.prepare('SELECT id, notes_per_beat FROM runs').all()).toEqual(
+      [{ id: 1, notes_per_beat: 1 }]
+    )
+
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat) VALUES (2, 1, 2000, 80, 2)'
+      )
+      .run()
+    expect(() =>
+      sqlite
+        .prepare(
+          'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat) VALUES (3, 1, 3000, 80, 3)'
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
 
     sqlite.close()
   })
@@ -157,13 +218,17 @@ describe('applyMigrations', () => {
 
     expect(() =>
       sqlite
-        .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)')
+        .prepare(
+          'INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)'
+        )
         .run(scale.id, 'descending')
     ).not.toThrow()
 
     expect(() =>
       sqlite
-        .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (2, ?, ?)')
+        .prepare(
+          'INSERT INTO exercises (id, scale_id, direction) VALUES (2, ?, ?)'
+        )
         .run(scale.id, 'sideways')
     ).toThrow(/CHECK constraint failed/)
 
@@ -177,7 +242,9 @@ describe('applyMigrations', () => {
       .prepare('SELECT id FROM scales WHERE slug = ?')
       .get('c-major') as { id: number }
     sqlite
-      .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)')
+      .prepare(
+        'INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)'
+      )
       .run(scale.id, 'descending')
 
     // C major descending, anchored on the upper C: C B A G F E D C

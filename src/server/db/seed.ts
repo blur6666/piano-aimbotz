@@ -45,8 +45,7 @@ function seedProgressionGroup(
       'SELECT id, name, progression_order AS progressionOrder FROM progression_groups WHERE slug = ?'
     )
     .get(group.slug) as
-    | { id: number; name: string; progressionOrder: number }
-    | undefined
+    { id: number; name: string; progressionOrder: number } | undefined
 
   if (existing) {
     if (
