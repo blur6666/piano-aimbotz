@@ -41,6 +41,12 @@ export type RunExerciseOptions = {
   // Click loudness, 0 to 1. Presentation only: the click is a practice aid
   // and nothing about it reaches scoring.
   metronomeVolume?: number
+  // Spoken count-in samples, or null/undefined for clicks only.
+  countInVoice?: readonly AudioBuffer[] | null
+  // Abandons the run: stops capture, silences the metronome and resolves
+  // null without submitting. A run cut short is not a run the player
+  // attempted, so it must not reach the database and dent a streak.
+  signal?: AbortSignal
 }
 
 export type RunOutcome = {
@@ -68,7 +74,8 @@ export function runExercise(
     countInBeats,
     scaleBeats,
     onBeatChange,
-    options.metronomeVolume
+    options.metronomeVolume,
+    options.countInVoice
   )
   options.onScheduled?.({
     firstExpectedBeat,
@@ -78,10 +85,25 @@ export function runExercise(
   const capture = startCapture(input, firstExpectedBeat, options.onLiveNote)
 
   return new Promise((resolve, reject) => {
-    window.setTimeout(
+    let timer = 0
+    const abandon = () => {
+      window.clearTimeout(timer)
+      capture.stop()
+      void audio.close()
+      console.info('[MIDI] run stopped before the capture window closed.')
+      resolve(null)
+    }
+    if (options.signal?.aborted) {
+      abandon()
+      return
+    }
+    options.signal?.addEventListener('abort', abandon, { once: true })
+
+    timer = window.setTimeout(
       () => {
+        options.signal?.removeEventListener('abort', abandon)
         capture.stop()
-        audio.close()
+        void audio.close()
         console.table(
           capture.events.map((event) => ({
             sequence: event.sequenceNumber,

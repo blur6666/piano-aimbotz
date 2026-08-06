@@ -9,6 +9,10 @@ import {
   type RunDetail,
   type RunHistoryEntry
 } from './api/runs.js'
+import {
+  loadCountInVoice,
+  type CountInVoice
+} from './metronome/countInVoice.js'
 import { requestMidiInputs } from './midi/access.js'
 import { createKeyboardInput } from './midi/keyboardInput.js'
 import {
@@ -80,7 +84,16 @@ function App() {
       ? saved
       : DEFAULT_METRONOME_VOLUME
   })
+  const [looping, setLooping] = useState(false)
   const inputsRef = useRef<MIDIInput[]>([])
+  const countInVoiceRef = useRef<CountInVoice | null>(null)
+  // Aborts the run in flight. Also the "should the loop keep going" flag:
+  // stopping mid-run must not immediately start the next one.
+  const abortRef = useRef<AbortController | null>(null)
+  const loopingRef = useRef(false)
+  // startRun is re-created every render, so the key handler reads it
+  // through a ref rather than capturing a stale closure.
+  const startRunRef = useRef<() => void>(() => {})
 
   const exercise =
     exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
@@ -165,6 +178,43 @@ function App() {
     localStorage.setItem(METRONOME_VOLUME_STORAGE_KEY, String(metronomeVolume))
   }, [metronomeVolume])
 
+  // Decoded once, ahead of the first run: decoding inside scheduleMetronome
+  // would race the first count-in beat. Absent samples are not an error.
+  useEffect(() => {
+    void loadCountInVoice().then((voice) => {
+      countInVoiceRef.current = voice
+    })
+  }, [])
+
+  useEffect(() => {
+    loopingRef.current = looping
+  }, [looping])
+
+  // Space starts a run, or stops the one in flight. Deliberately not a
+  // letter: A-K and W/E/T/Y/U are piano keys in computer-keyboard mode.
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if (event.code !== 'Space' && event.key !== ' ') return
+      const target = event.target as HTMLElement | null
+      // Space on a focused button or checkbox already means "activate it".
+      if (target && /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName))
+        return
+      event.preventDefault()
+      if (abortRef.current) stopRun()
+      else startRunRef.current()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  function stopRun() {
+    // Clear the loop flag first: the abort resolves the run as null, and
+    // the loop must not treat that as "finished, go again".
+    loopingRef.current = false
+    setLooping(false)
+    abortRef.current?.abort()
+  }
+
   async function refreshMidiInputs() {
     try {
       applyAvailableInputs(await requestMidiInputs())
@@ -216,7 +266,7 @@ function App() {
   }
 
   async function startRun() {
-    if (!exercise || !activeInputId) return
+    if (!exercise || !activeInputId || abortRef.current) return
     let input: MIDIInput
     let disposeKeyboardInput: (() => void) | null = null
     if (useComputerKeyboard) {
@@ -231,6 +281,8 @@ function App() {
       input = found
     }
     const tempoBpm = practiceMode ? practiceTempoBpm : exercise.currentTempoBpm
+    const controller = new AbortController()
+    abortRef.current = controller
     setOutcome(null)
     setRunning(true)
     setStatus(practiceMode ? 'Count-in (practice, not saved)' : 'Count-in')
@@ -252,6 +304,8 @@ function App() {
         setBeat,
         {
           metronomeVolume,
+          countInVoice: countInVoiceRef.current,
+          signal: controller.signal,
           onScheduled: setRunSchedule,
           onLiveNote: (event) => {
             if (event.type !== 'note_on') return
@@ -264,6 +318,10 @@ function App() {
         }
       )
       setRunning(false)
+      if (controller.signal.aborted) {
+        setStatus('Stopped. Press Space to start again.')
+        return
+      }
       if (result === null) {
         setStatus(`Practice run complete at ${tempoBpm} BPM. Not saved.`)
         return
@@ -296,8 +354,22 @@ function App() {
       )
     } finally {
       disposeKeyboardInput?.()
+      abortRef.current = null
+      // Auto-restart runs until you stop it, pass or fail -- chaining is
+      // about staying in the loop, not about being rewarded for a streak.
+      // One beat of gap so the last note-off and the next count-in do not
+      // run together.
+      if (loopingRef.current && !controller.signal.aborted)
+        window.setTimeout(() => {
+          // Re-checked on arrival, not just when scheduled: stopping during
+          // the gap between runs leaves this timer already queued, and it
+          // would otherwise start a run the player just cancelled.
+          if (loopingRef.current) startRunRef.current()
+        }, 60_000 / tempoBpm)
     }
   }
+
+  startRunRef.current = () => void startRun()
 
   return (
     <main>
@@ -346,13 +418,25 @@ function App() {
               ))
             )}
           </select>
-          <button
-            className="primary"
-            onClick={startRun}
-            disabled={running || !activeInputId || !exercise}
-          >
-            Start run
-          </button>
+          {running ? (
+            <button onClick={stopRun}>Stop</button>
+          ) : (
+            <button
+              className="primary"
+              onClick={startRun}
+              disabled={!activeInputId || !exercise}
+            >
+              Start run
+            </button>
+          )}
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={looping}
+              onChange={(event) => setLooping(event.target.checked)}
+            />
+            Auto-restart
+          </label>
           <label className="volume">
             <span>Click</span>
             <input

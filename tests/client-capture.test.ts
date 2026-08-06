@@ -193,6 +193,43 @@ describe('runExercise submission', () => {
     vi.unstubAllGlobals()
   })
 
+  it('abandons an aborted run without submitting it', async () => {
+    const input = fakeInput()
+    const controller = new AbortController()
+    const runPromise = runExercise(
+      input,
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: controller.signal }
+    )
+
+    input.onmidimessage!(message(4000, 0x90, 60, 100))
+    await vi.advanceTimersByTimeAsync(5_000)
+    controller.abort()
+
+    // A run cut short is not an attempt: it must not reach the database,
+    // where it would count against the streak.
+    await expect(runPromise).resolves.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // The capture window's own timer must not fire a late submission after
+    // the abort already resolved the run.
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not start a run that is aborted before it begins', async () => {
+    const runPromise = runExercise(
+      fakeInput(),
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: AbortSignal.abort() }
+    )
+    await expect(runPromise).resolves.toBeNull()
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('submits one request shaped from the capture window, with wall-clock time from performance.timeOrigin', async () => {
     const input = fakeInput()
     const beats: string[] = []
