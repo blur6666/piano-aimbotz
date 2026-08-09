@@ -43,5 +43,20 @@ export default [
       'no-undef': 'off'
     }
   },
+  {
+    // Node-only maintenance scripts (report data export, chart rendering,
+    // HTML export). They never reach the browser bundle, so they get Node
+    // globals rather than the DOM set declared above.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      ecmaVersion: 2022,
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly'
+      }
+    }
+  },
   prettier
 ]

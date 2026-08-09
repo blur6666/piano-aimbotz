@@ -1,0 +1,22 @@
+run_id,performed_at_ms,scale,direction,tempo_bpm,notes_per_beat,algorithm_version,hard_fault_count,timing_fault_count,overlap_fault_count,timing_sample_count,timing_excluded_count,mean_absolute_timing_deviation_us,passed
+1,1785989452784,C major,ascending,80,2,stage2,0,3,6,8,0,75188,0
+2,1785989470675,C major,ascending,80,2,stage2,0,1,6,8,0,50700,0
+3,1785989485337,C major,ascending,80,2,stage2,0,0,6,8,0,22975,1
+4,1785989495468,C major,ascending,80,2,stage2,0,5,6,8,0,84663,0
+5,1785989518459,C major,ascending,80,2,stage2,0,0,6,8,0,30213,1
+6,1785989527940,C major,ascending,80,2,stage2,0,1,6,8,0,44788,0
+7,1785989539189,C major,ascending,80,2,stage2,0,2,6,8,0,58838,0
+8,1785989547954,C major,ascending,80,2,stage2,0,0,6,8,0,31725,1
+9,1785989556691,C major,ascending,80,2,stage2,0,3,6,8,0,57188,0
+10,1785989566819,C major,ascending,80,2,stage2,0,0,6,8,0,26375,1
+11,1785989575544,C major,ascending,80,2,stage2,0,0,6,8,0,31200,1
+12,1785989584465,C major,ascending,80,2,stage2,0,0,6,8,0,33575,1
+13,1785989609312,C major,ascending,84,2,stage2,0,2,6,8,0,56532,0
+14,1785989618114,C major,ascending,84,2,stage2,0,0,6,8,0,34857,1
+15,1785989626518,C major,ascending,84,2,stage2,0,0,6,8,0,25932,1
+16,1785989634385,C major,ascending,84,2,stage2,0,0,6,8,0,34939,1
+17,1785989644022,C major,ascending,88,2,stage2,0,7,6,8,0,96433,0
+18,1785989652881,C major,ascending,88,2,stage2,0,3,6,8,0,52745,0
+19,1785989661123,C major,ascending,88,2,stage2,0,1,6,8,0,56795,0
+20,1785989669758,C major,ascending,88,2,stage2,0,4,6,8,0,57708,0
+21,1785989692746,C major,ascending,88,2,stage2,0,3,6,8,0,59495,0
