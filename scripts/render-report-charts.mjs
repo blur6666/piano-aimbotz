@@ -59,7 +59,15 @@ const TOLERANCE_FRACTION = 0.2
 // ---------------------------------------------------------------- data
 
 function readCsv(name) {
-  const lines = readFileSync(join(REPORT, 'data', name), 'utf8').trim().split('\n')
+  // Split on \r?\n rather than \n: git checks these CSVs out with CRLF
+  // endings on Windows, and the trailing \r then rides along on the last
+  // field of every row -- including the header, where it silently renames
+  // the final column. `finger_number` became `finger_number\r`, every lookup
+  // on it returned undefined, Number(undefined) is NaN, so the thumb-crossing
+  // search matched nothing and indexed past the start of the array.
+  const lines = readFileSync(join(REPORT, 'data', name), 'utf8')
+    .trim()
+    .split(/\r?\n/)
   const columns = lines[0].split(',')
   return lines.slice(1).map((line) => {
     // Fields are only quoted when they contain a comma, quote, or newline.
