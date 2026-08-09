@@ -129,17 +129,21 @@ function seedExercise(
   scaleId: number
 ): number {
   const existing = sqlite
-    .prepare('SELECT id FROM exercises WHERE scale_id = ? AND direction = ?')
-    .get(scaleId, exercise.direction) as { id: number } | undefined
+    .prepare(
+      'SELECT id FROM exercises WHERE scale_id = ? AND direction = ? AND octaves = ?'
+    )
+    .get(scaleId, exercise.direction, exercise.octaves) as
+    | { id: number }
+    | undefined
   if (existing) return existing.id
 
   const inserted = sqlite
     .prepare(
-      `INSERT INTO exercises (scale_id, direction)
-       VALUES (?, ?)
+      `INSERT INTO exercises (scale_id, direction, octaves)
+       VALUES (?, ?, ?)
        RETURNING id`
     )
-    .get(scaleId, exercise.direction) as { id: number }
+    .get(scaleId, exercise.direction, exercise.octaves) as { id: number }
   return inserted.id
 }
 

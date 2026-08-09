@@ -11,6 +11,7 @@ import type {
 type ExerciseRow = {
   exercise_id: number
   direction: 'ascending' | 'descending'
+  octaves: number
   current_tempo_bpm: number
   consecutive_clean_runs: number
   group_slug: string
@@ -61,6 +62,7 @@ export function registerExerciseRoutes(
         `SELECT
            e.id AS exercise_id,
            e.direction AS direction,
+           e.octaves AS octaves,
            p.current_tempo_bpm AS current_tempo_bpm,
            p.consecutive_clean_runs AS consecutive_clean_runs,
            g.slug AS group_slug,
@@ -89,6 +91,7 @@ export function registerExerciseRoutes(
       const exercise: Exercise = {
         id: row.exercise_id,
         direction: row.direction,
+        octaves: row.octaves,
         currentTempoBpm: row.current_tempo_bpm,
         notesPerBeat: config.notesPerBeat,
         consecutiveCleanRuns: row.consecutive_clean_runs,

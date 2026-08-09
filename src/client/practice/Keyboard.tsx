@@ -20,7 +20,7 @@ const OCTAVE_BLACK_NOTES = [
   { note: 'A#', pitchClass: 10, afterWhiteIndex: 5 }
 ]
 
-export const OCTAVE_COUNT = 2
+export const OCTAVE_COUNT = 3
 
 const WHITE_KEYS_PER_OCTAVE = OCTAVE_WHITE_NOTES.length
 const WHITE_KEY_WIDTH_PERCENT = 100 / (OCTAVE_COUNT * WHITE_KEYS_PER_OCTAVE)

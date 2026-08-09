@@ -68,7 +68,11 @@ export function runExercise(
   const countInBeats = 4
   // The click stays on the beat (SPEC.md), so eight notes at two per beat
   // occupy four scale beats, not eight.
-  const scaleBeats = exercise.steps.length / exercise.notesPerBeat
+  // Math.ceil because an odd step count at two notes per beat lands the final
+  // onset mid-beat: 15 eighths span 7.5 beats, and the loop that schedules
+  // clicks and the tail beat only understands whole ones. Rounding up leaves
+  // the tail a full beat past the last note, which is what it is for.
+  const scaleBeats = Math.ceil(exercise.steps.length / exercise.notesPerBeat)
   const { audio, firstExpectedBeat, beatMs } = scheduleMetronome(
     exercise.tempoBpm,
     countInBeats,

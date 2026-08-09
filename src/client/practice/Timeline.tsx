@@ -83,7 +83,11 @@ export function Timeline({
       }))
 
   return (
-    <div className="timeline" aria-hidden="true">
+    <div
+      className="timeline"
+      aria-hidden="true"
+      style={{ '--step-count': stepCount } as React.CSSProperties}
+    >
       <div className="timeline-pads">
         {steps.map((step, index) => (
           <div className="timeline-pad" key={index}>

@@ -12,6 +12,8 @@ export type CatalogStep = readonly [
 
 export type CatalogExercise = {
   direction: 'ascending' | 'descending'
+  // 1 or 2. A two-octave exercise has 15 steps spanning 24 semitones.
+  octaves: number
   steps: readonly CatalogStep[]
 }
 
@@ -166,54 +168,87 @@ export function validateCatalog(catalog: Catalog): void {
       `Catalog must cover every tonic pitch class 0..11 exactly once, found [${[...seenTonicPitchClasses].sort((a, b) => a - b).join(', ')}].`
     )
 
+  // Two-octave coverage is deliberately partial (Group 1 plus F). Asserting
+  // the exact count means a half-applied catalog change fails loudly here
+  // rather than surfacing as a missing exercise in the picker.
+  const twoOctaveScaleCount = allScales.filter((scale) =>
+    scale.exercises.some((exercise) => exercise.octaves === 2)
+  ).length
+  if (twoOctaveScaleCount !== 7)
+    throw new Error(
+      `Catalog must define two-octave exercises for exactly 7 scales (Group 1 plus F), found ${twoOctaveScaleCount}.`
+    )
+
   // Second pass: per-scale exercise/step content, once the catalog's own
   // shape is known to be sound.
   for (const scale of allScales) validateScaleExercises(scale)
 }
 
 function validateScaleExercises(scale: CatalogScale): void {
-  if (scale.exercises.length !== 2)
+  const byOctaves = new Map<number, CatalogExercise[]>()
+  for (const exercise of scale.exercises) {
+    if (exercise.octaves !== 1 && exercise.octaves !== 2)
+      throw new Error(
+        `Scale "${scale.slug}" has an exercise with octaves ${exercise.octaves}, expected 1 or 2.`
+      )
+    const list = byOctaves.get(exercise.octaves) ?? []
+    list.push(exercise)
+    byOctaves.set(exercise.octaves, list)
+  }
+
+  if (!byOctaves.has(1))
     throw new Error(
-      `Scale "${scale.slug}" must have exactly 2 exercises (ascending and descending), found ${scale.exercises.length}.`
-    )
-  const directions = scale.exercises.map((exercise) => exercise.direction)
-  if (!directions.includes('ascending') || !directions.includes('descending'))
-    throw new Error(
-      `Scale "${scale.slug}" must have exactly one ascending and one descending exercise, found directions [${directions.join(', ')}].`
+      `Scale "${scale.slug}" must have one-octave exercises; found only [${[...byOctaves.keys()].join(', ')}].`
     )
 
-  const ascending = scale.exercises.find(
-    (exercise) => exercise.direction === 'ascending'
-  )!
-  const descending = scale.exercises.find(
-    (exercise) => exercise.direction === 'descending'
-  )!
-
-  validateSteps(scale, ascending)
-  validateSteps(scale, descending)
-
-  const ascendingFingering = ascending.steps.map(
-    ([, , fingerNumber]) => fingerNumber
-  )
-  const descendingFingering = descending.steps.map(
-    ([, , fingerNumber]) => fingerNumber
-  )
-  const reversedAscendingFingering = [...ascendingFingering].reverse()
-  if (
-    descendingFingering.some(
-      (finger, index) => finger !== reversedAscendingFingering[index]
+  // Every octave count a scale offers must be a complete ascending/descending
+  // pair, and the mirror-fingering rule holds within that pair rather than
+  // across the scale as a whole.
+  for (const [octaves, exercises] of byOctaves) {
+    if (exercises.length !== 2)
+      throw new Error(
+        `Scale "${scale.slug}" must have exactly 2 ${octaves}-octave exercises (ascending and descending), found ${exercises.length}.`
+      )
+    const ascending = exercises.find(
+      (exercise) => exercise.direction === 'ascending'
     )
-  )
-    throw new Error(
-      `Scale "${scale.slug}" descending fingering [${descendingFingering.join(', ')}] must be the exact reverse of ascending [${ascendingFingering.join(', ')}].`
+    const descending = exercises.find(
+      (exercise) => exercise.direction === 'descending'
     )
+    if (!ascending || !descending)
+      throw new Error(
+        `Scale "${scale.slug}" must have exactly one ascending and one descending ${octaves}-octave exercise, found directions [${exercises.map((exercise) => exercise.direction).join(', ')}].`
+      )
+
+    validateSteps(scale, ascending)
+    validateSteps(scale, descending)
+
+    const ascendingFingering = ascending.steps.map(
+      ([, , fingerNumber]) => fingerNumber
+    )
+    const descendingFingering = descending.steps.map(
+      ([, , fingerNumber]) => fingerNumber
+    )
+    const reversedAscendingFingering = [...ascendingFingering].reverse()
+    if (
+      descendingFingering.some(
+        (finger, index) => finger !== reversedAscendingFingering[index]
+      )
+    )
+      throw new Error(
+        `Scale "${scale.slug}" ${octaves}-octave descending fingering [${descendingFingering.join(', ')}] must be the exact reverse of ascending [${ascendingFingering.join(', ')}].`
+      )
+  }
 }
 
 function validateSteps(scale: CatalogScale, exercise: CatalogExercise): void {
-  const label = `${scale.slug} ${exercise.direction}`
-  if (exercise.steps.length !== 8)
+  const label = `${scale.slug} ${exercise.direction} ${exercise.octaves}-octave`
+  // Seven degrees per octave plus the closing tonic: 8 steps for one octave,
+  // 15 for two.
+  const expectedStepCount = exercise.octaves * 7 + 1
+  if (exercise.steps.length !== expectedStepCount)
     throw new Error(
-      `Exercise "${label}" must have exactly 8 steps, found ${exercise.steps.length}.`
+      `Exercise "${label}" must have exactly ${expectedStepCount} steps, found ${exercise.steps.length}.`
     )
 
   const [, firstOffset] = exercise.steps[0]
@@ -222,11 +257,13 @@ function validateSteps(scale: CatalogScale, exercise: CatalogExercise): void {
       `Exercise "${label}" step 0 must have semitoneOffset 0, found ${firstOffset}.`
     )
 
-  const [, lastOffset] = exercise.steps[7]
-  const expectedLastOffset = exercise.direction === 'ascending' ? 12 : -12
+  const lastIndex = expectedStepCount - 1
+  const [, lastOffset] = exercise.steps[lastIndex]
+  const expectedLastOffset =
+    (exercise.direction === 'ascending' ? 12 : -12) * exercise.octaves
   if (lastOffset !== expectedLastOffset)
     throw new Error(
-      `Exercise "${label}" step 7 must have semitoneOffset ${expectedLastOffset}, found ${lastOffset}.`
+      `Exercise "${label}" step ${lastIndex} must have semitoneOffset ${expectedLastOffset}, found ${lastOffset}.`
     )
 
   for (let index = 0; index < exercise.steps.length; index += 1) {

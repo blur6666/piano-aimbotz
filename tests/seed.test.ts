@@ -23,16 +23,17 @@ const testConfig: AppConfig = {
 function exerciseIdFor(
   sqlite: Database.Database,
   scaleSlug: string,
-  direction: 'ascending' | 'descending'
+  direction: 'ascending' | 'descending',
+  octaves = 1
 ): number {
   return (
     sqlite
       .prepare(
         `SELECT e.id FROM exercises e
          JOIN scales s ON s.id = e.scale_id
-         WHERE s.slug = ? AND e.direction = ?`
+         WHERE s.slug = ? AND e.direction = ? AND e.octaves = ?`
       )
-      .get(scaleSlug, direction) as { id: number }
+      .get(scaleSlug, direction, octaves) as { id: number }
   ).id
 }
 
@@ -50,17 +51,17 @@ describe('seedCatalog', () => {
     ).toEqual({ count: 12 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercises').get()
-    ).toEqual({ count: 24 })
+    ).toEqual({ count: 38 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercise_steps').get()
-    ).toEqual({ count: 24 * 8 })
+    ).toEqual({ count: 24 * 8 + 14 * 15 })
     expect(
       sqlite
         .prepare(
           'SELECT count(*) AS count FROM exercise_progress WHERE current_tempo_bpm = 60 AND consecutive_clean_runs = 0'
         )
         .get()
-    ).toEqual({ count: 24 })
+    ).toEqual({ count: 38 })
 
     sqlite.close()
   })
@@ -107,10 +108,10 @@ describe('seedCatalog', () => {
 
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercises').get()
-    ).toEqual({ count: 24 })
+    ).toEqual({ count: 38 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercise_steps').get()
-    ).toEqual({ count: 24 * 8 })
+    ).toEqual({ count: 24 * 8 + 14 * 15 })
 
     sqlite.close()
   })
@@ -187,6 +188,32 @@ describe('seedCatalog', () => {
     sqlite.close()
   })
 
+  it('errors instead of silently rewriting an already-seeded two-octave step', () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+    seedCatalog(sqlite, testConfig)
+
+    const exerciseId = exerciseIdFor(sqlite, 'c-major', 'ascending', 2)
+    sqlite
+      .prepare(
+        'UPDATE exercise_steps SET semitone_offset = 15 WHERE exercise_id = ? AND step_index = 8'
+      )
+      .run(exerciseId)
+
+    expect(() => seedCatalog(sqlite, testConfig)).toThrow(
+      /step 8 already has.*differs from the seed source/s
+    )
+    expect(
+      sqlite
+        .prepare(
+          'SELECT semitone_offset FROM exercise_steps WHERE exercise_id = ? AND step_index = 8'
+        )
+        .get(exerciseId)
+    ).toEqual({ semitone_offset: 15 })
+
+    sqlite.close()
+  })
+
   it('errors instead of silently changing an already-seeded initial tempo', () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
@@ -201,7 +228,7 @@ describe('seedCatalog', () => {
           'SELECT count(*) AS count FROM exercise_progress WHERE initial_tempo_bpm = 60'
         )
         .get()
-    ).toEqual({ count: 24 })
+    ).toEqual({ count: 38 })
 
     sqlite.close()
   })

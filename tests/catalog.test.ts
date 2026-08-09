@@ -11,6 +11,7 @@ type MutableStep = [
 ]
 type MutableExercise = {
   direction: 'ascending' | 'descending'
+  octaves: number
   steps: MutableStep[]
 }
 type MutableScale = {
@@ -78,6 +79,17 @@ describe('validateCatalog', () => {
     )
   })
 
+  it('rejects a two-octave exercise without exactly 15 steps', () => {
+    const catalog = cloneCatalog()
+    const twoOctave = catalog.groups[0].scales[0].exercises.find(
+      (exercise) => exercise.octaves === 2
+    )!
+    twoOctave.steps.pop()
+    expect(() => validateCatalog(catalog)).toThrow(
+      /must have exactly 15 steps, found 14/
+    )
+  })
+
   it('rejects a step-0 offset that is not zero', () => {
     const catalog = cloneCatalog()
     catalog.groups[0].scales[0].exercises[0].steps[0][1] = 1
@@ -142,7 +154,63 @@ describe('validateCatalog', () => {
     const catalog = cloneCatalog()
     catalog.groups[0].scales[0].exercises.pop()
     expect(() => validateCatalog(catalog)).toThrow(
-      /must have exactly 2 exercises/
+      /must have exactly 2 2-octave exercises/
     )
+  })
+})
+
+describe('catalogV1 two-octave exercises', () => {
+  function scaleBySlug(slug: string) {
+    return catalogV1.groups
+      .flatMap((group) => group.scales)
+      .find((scale) => scale.slug === slug)!
+  }
+
+  function twoOctaveAscending(slug: string) {
+    return scaleBySlug(slug).exercises.find(
+      (exercise) =>
+        exercise.octaves === 2 && exercise.direction === 'ascending'
+    )!
+  }
+
+  it('builds C major two-octave ascending with the shared pattern repeated', () => {
+    const exercise = twoOctaveAscending('c-major')
+    expect(exercise.steps.map((step) => step[2])).toEqual([
+      1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 5
+    ])
+    expect(exercise.steps.map((step) => step[1])).toEqual([
+      0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24
+    ])
+    expect(exercise.steps.map((step) => step[0]).join(' ')).toBe(
+      'C D E F G A B C D E F G A B C'
+    )
+  })
+
+  it('builds F major two-octave ascending keeping the thumb on F and C', () => {
+    const exercise = twoOctaveAscending('f-major')
+    expect(exercise.steps.map((step) => step[2])).toEqual([
+      1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4
+    ])
+  })
+
+  it('contains exactly 38 exercises, with only the seven two-octave scales offering a variant', () => {
+    const allExercises = catalogV1.groups.flatMap((group) =>
+      group.scales.flatMap((scale) => scale.exercises)
+    )
+    expect(allExercises).toHaveLength(38)
+
+    const blackKeySlugs = [
+      'b-flat-major',
+      'e-flat-major',
+      'a-flat-major',
+      'd-flat-major',
+      'f-sharp-g-flat-major'
+    ]
+    for (const scale of catalogV1.groups.flatMap((group) => group.scales)) {
+      const hasTwoOctave = scale.exercises.some(
+        (exercise) => exercise.octaves === 2
+      )
+      expect(hasTwoOctave).toBe(!blackKeySlugs.includes(scale.slug))
+    }
   })
 })

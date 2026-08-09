@@ -188,6 +188,91 @@ describe('applyMigrations', () => {
     sqlite.close()
   })
 
+  it('migration 0008 backfills existing exercises as one octave and widens the step and assessment bounds', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+
+    const target = '0008_two_octave_exercises.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    // The two one-octave exercises as they existed before the migration.
+    sqlite
+      .prepare(
+        "INSERT INTO exercises (id, scale_id, direction) VALUES (1, 1, 'ascending')"
+      )
+      .run()
+    sqlite
+      .prepare(
+        "INSERT INTO exercises (id, scale_id, direction) VALUES (2, 1, 'descending')"
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+
+    // Pre-existing exercises backfill truthfully to a single octave.
+    expect(
+      sqlite.prepare('SELECT id, octaves FROM exercises ORDER BY id').all()
+    ).toEqual([
+      { id: 1, octaves: 1 },
+      { id: 2, octaves: 1 }
+    ])
+
+    // A step_index of 14 inserts; 15 is rejected.
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 14, 'C', 0, 1)"
+        )
+        .run()
+    ).not.toThrow()
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'C', 0, 1)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    // A semitone_offset of 24 inserts; 25 is rejected.
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 0, 'C', 24, 1)"
+        )
+        .run()
+    ).not.toThrow()
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 0, 'C', 25, 1)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    // A timing window of 15 samples inserts; 16 is rejected.
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+    const insertAssessment = sqlite.prepare(
+      `INSERT INTO run_assessments (
+        run_id, algorithm_version, scoring_parameters, progression_policy_version,
+        progression_parameters, hard_fault_count, timing_fault_count,
+        overlap_fault_count, timing_sample_count, timing_excluded_count,
+        mean_absolute_timing_deviation_us, passed, assessed_at_ms
+      ) VALUES (1, 'v1', '{}', 'v1', '{}', 0, 0, 0, ?, 0, 0, 1, 1000)`
+    )
+    expect(() => insertAssessment.run(15)).not.toThrow()
+    expect(() => insertAssessment.run(16)).toThrow(/CHECK constraint failed/)
+
+    sqlite.close()
+  })
+
   it('scales enforces unique tonic_pitch_class and unique position within a group', () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
@@ -265,17 +350,19 @@ describe('applyMigrations', () => {
         .all()
     ).toEqual(descendingOffsets.map((semitone_offset) => ({ semitone_offset })))
 
+    // 0008 widened the valid range to step_index 0..14 and offset -24..24,
+    // so the old out-of-range values are now legal; test the new bounds.
     expect(() =>
       sqlite
         .prepare(
-          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', -13, 1)"
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'Y', -25, 1)"
         )
         .run()
     ).toThrow(/CHECK constraint failed/)
     expect(() =>
       sqlite
         .prepare(
-          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', 13, 1)"
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'Y', 25, 1)"
         )
         .run()
     ).toThrow(/CHECK constraint failed/)

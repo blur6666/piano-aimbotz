@@ -614,3 +614,39 @@ describe('summary.passed against configured maxima', () => {
     )
   })
 })
+
+describe('two-octave (15-step) exercises', () => {
+  it('scores a perfect run with a timing sample for every one of its 15 steps', () => {
+    const twoOctaveOffsets = [
+      0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24
+    ]
+    const assessment = scoreRun({
+      exercise: {
+        direction: 'ascending',
+        tonicPitchClass: 0,
+        steps: twoOctaveOffsets.map((semitoneOffset, stepIndex) => ({
+          stepIndex,
+          semitoneOffset,
+          fingerNumber: 1
+        }))
+      },
+      tempoBpm: 60,
+      notesPerBeat: 1,
+      events: twoOctaveOffsets.map((offset, index) => ({
+        sequenceNumber: index,
+        offsetUs: index * 1_000_000,
+        type: 'note_on' as const,
+        midiPitch: 60 + offset,
+        velocity: 100
+      })),
+      config: { ...hardFaultOnlyConfig, maxTimingFaultsPerRun: 0 },
+      algorithmVersion: 'test'
+    })
+
+    expect(assessment.steps).toHaveLength(15)
+    expect(assessment.summary.hardFaultCount).toBe(0)
+    expect(assessment.summary.timingFaultCount).toBe(0)
+    expect(assessment.summary.timingSampleCount).toBe(15)
+    expect(assessment.summary.passed).toBe(true)
+  })
+})

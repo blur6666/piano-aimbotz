@@ -230,7 +230,7 @@ button.primary {
 }
 .timeline-pads {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(var(--step-count, 8), 1fr);
 }
 .timeline-pad {
   text-align: center;
@@ -251,7 +251,7 @@ button.primary {
     #333335 0,
     #333335 1px,
     transparent 1px,
-    transparent 12.5%
+    transparent calc(100% / var(--step-count, 8))
   );
   overflow: hidden;
 }
