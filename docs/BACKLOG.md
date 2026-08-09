@@ -2,48 +2,69 @@
 
 ## 🏃‍♂️ Active Sprint (Agent Actionable)
 
-- **[TODO] Support scales longer than one octave (2-octave C major and beyond)**
-  - _Why:_ blocks recording a 2-octave practice session at all. Also the
-    better experiment for report 001's finding: 2-octave C major ascending is
-    fingered `1 2 3 1 2 3 4 1 2 3 1 2 3 4 5`, which contains **three** thumb
-    crossings instead of one, so it tests whether the approach-drag recurs at
-    every crossing and whether the B→C crossing (thumb after finger 4) behaves
-    like the E→F ones (thumb after finger 3).
-  - _Blockers — three CHECK constraints assume exactly 8 steps in one octave:_
-    - `exercise_steps.step_index CHECK (step_index BETWEEN 0 AND 7)`
-    - `exercise_steps.semitone_offset CHECK (BETWEEN -12 AND 12)` — 2 octaves
-      needs +24
-    - `run_assessments CHECK (timing_sample_count + timing_excluded_count <= 8)`
-  - _Also touches:_ the catalog (`catalog/v1.ts`, `src/domain/catalog/`) which
-    seeds 8 steps per exercise; `scoreRun`, which is step-count agnostic but
-    whose callers and tests are not; and the practice UI timeline/keyboard,
-    which lays out a fixed 8 notes.
-  - _Sequencing note:_ this lands in the same scoring path as report 001's
-    "score against a best-fit line" recommendation. Worth deciding whether
-    they ship together, since both re-score stored runs.
+- **[VERIFYING] Two-octave scales — implemented, awaiting the playback check**
+  - _Shipped:_ `9982895`, for Group 1 plus F (seven scales), following
+    [`docs/plans/two-octave-scales.md`](plans/two-octave-scales.md). Migration
+    `0008` widened the three CHECK constraints that capped an exercise at eight
+    steps; the catalog validator and the wire contract were the other two
+    places assuming the same thing.
+  - _What is left:_ play **C major ascending (2 octaves)** and check three
+    things no test can see — that the click runs to the end of all fifteen
+    notes rather than stopping at 7.5 beats, that the timeline pads sit in one
+    row aligned with their targets, and that the keyboard highlights the full
+    span up to the C two octaves above. Then trim this item out.
+  - _Why it mattered:_ this is the better experiment for report 001's finding.
+    2-octave C major ascending is fingered `1 2 3 1 2 3 4 1 2 3 1 2 3 4 5`,
+    which contains **three** thumb crossings instead of one, so it tests
+    whether the approach-drag recurs at every crossing and whether the B→C
+    crossing (thumb after finger 4) behaves like the E→F ones (thumb after
+    finger 3).
+  - _Still open:_ the five black-key scales stay one octave until their
+    two-octave fingering is sourced from the pianoscales.org reference. Their
+    one-octave patterns do not start on the thumb, so the octave repeat used
+    for the other seven is not valid for them and the data cannot be derived.
 
-- **[TODO] Correct the expected beat grid for audio output latency**
-  - _Why:_ measured across 21 real runs, every step was late by a mean of
-    +46 ms, and `AudioContext.outputLatency` on this machine reads 42 ms
-    (`playbackStats.averageLatency` 43 ms). The two agree within ~3 ms, so
-    essentially all of the apparent lateness is the click reaching the ears
-    later than we timestamp it. Deviations relative to the player's own mean
-    are only ±23 ms — the unevenness is fine, the anchor is wrong. Every run
-    recorded before this lands carries a ~43 ms handicap.
+- **[TODO] Settle the timing anchor: measured latency, best-fit line, or neither**
+  - _Status:_ this replaces a prescriptive item that specified a migration and a
+    formula. [Report 001](../reports/001-midi-latency/REPORT.md) was written
+    afterwards and contradicts it, so the work now is to settle the
+    disagreement, not to implement either side. The relevant sections there are
+    *The offset is not constant* and *Recommendations*.
+  - _The case for correcting:_ across 21 real runs every step was late by a mean
+    of +46 ms, and `AudioContext.outputLatency` on this machine reads 42 ms
+    (`playbackStats.averageLatency` 43 ms). The two agree within ~3 ms. The
+    delay between when we timestamp the click and when it reaches the ears is
+    physical, and correcting for it is defensible on those grounds alone.
+  - _The case against:_ report 001 rec #2. The offset resets to ~78–81 ms every
+    time the tempo changes and decays ~3.9 ms per attempt (r = −0.56) — fixed
+    hardware latency cannot produce a reset on tempo change. A flat correction
+    therefore overcorrects settled runs: run 5 passes today and *gains* a fault
+    under flat −45 ms compensation.
+  - _The unresolved part:_ the 84 bpm block settles to a 2 ms offset. If a
+    genuine ~42 ms output latency were being subtracted, those runs would land
+    near −40 ms and fail. Either the player anticipates the click, or the
+    measured latency is not what reaches the ears. This dataset cannot separate
+    MIDI device latency, audio output latency and human reaction lag — report
+    001 says so in its own caveat.
+  - _The alternative:_ report 001 rec #1 — score against each run's own best-fit
+    line instead of the absolute grid. Takes passing runs from 9 to 20 and
+    faulted notes from 35 to 1, needs no latency assumption at all, and still
+    measures evenness, which is the quantity of interest. Report 001 calls it
+    the highest-value change in it.
+  - _What would settle it:_ report 001 rec #7 — capture a reference run with
+    known device latency. A loopback or click-track measurement that isolates
+    device latency from human reaction lag is the missing evidence. Until that
+    exists this is a question, not a task.
   - _Do not_ read `outputLatency` from a freshly created `AudioContext`: it
     reports 0 until the device is actually rendering. Measure it at the
-    **end** of the run, when the context has been clicking for seconds.
-  - _Plan:_ migration `0008` adds `output_latency_us` to `runs` (DEFAULT 0,
-    so the existing 21 runs stay honest about having been uncorrected);
-    `SubmitRun` carries the measured value; `scoreRun` adds it to every
-    `expectedOffsetUs`. Stored per run rather than configured globally,
-    for the same reason as `notes_per_beat` — it is a property of the
-    conditions a run was played under, so swapping audio devices later
-    does not retro-fit today's number onto old runs. Raw events are
-    untouched, so all existing runs re-score for free.
-  - _Consequence:_ with 43 ms removed, most of the 21 recorded runs flip to
-    passing, including the 88 BPM ones. Expect the tempo ceiling to jump;
-    consider resetting the climb rather than inheriting it.
+    **end** of a run, when the context has been clicking for seconds. True
+    whichever way the decision goes.
+  - _Consequence either way:_ every run recorded so far was scored against the
+    uncorrected grid, so any change here re-scores stored runs. Re-score and
+    rebuild progress with `rebuildExerciseProgress`
+    (`src/server/progress/rebuild.ts`, `npm run rebuild-progress`) rather than
+    leaving old assessments as-is. Expect the tempo ceiling to jump; consider
+    resetting the climb rather than inheriting it.
 
 ---
 
