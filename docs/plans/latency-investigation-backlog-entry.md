@@ -90,7 +90,7 @@ and *Recommendations*.
 ## Verification
 
 ```bash
-npm run lint && npm test    # nothing should change; 101 tests stay green
+npm run lint && npm test    # nothing should change; the current suite stays green
 git diff --stat             # docs/BACKLOG.md must be the ONLY modified file
 ```
 

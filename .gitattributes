@@ -11,6 +11,15 @@
 *.csv text eol=lf
 *.sql text eol=lf
 
+# Prettier compares line endings as part of formatting. Keep every checked
+# source format on LF so Windows worktrees agree with CI.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+
 # Never touch: the count-in samples and the fingering reference scan.
 *.mp3 binary
 *.png binary

@@ -36,7 +36,7 @@ export type SubmitRunResponse = {
   }
   originalAssessment: {
     scoringParameters: ScoringParameters
-    // `timingToleranceBeatFraction` resolved against this run's tempo.
+    // `timingToleranceNoteFraction` resolved against this run's tempo.
     timingToleranceUs: number
     steps: AssessmentStep[]
     faults: AssessmentFault[]

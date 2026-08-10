@@ -71,7 +71,7 @@ export type ScoreRunInput = {
 export type Assessment = {
   algorithmVersion: string
   scoringParameters: ScoringConfig
-  // `timingToleranceBeatFraction` resolved against this run's tempo. Kept
+  // `timingToleranceNoteFraction` resolved against this run's tempo. Kept
   // on the assessment so a reader (and the end-of-round display) can state
   // the rule it was judged by without re-deriving it from the tempo.
   timingToleranceUs: number

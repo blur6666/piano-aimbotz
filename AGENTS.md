@@ -91,17 +91,18 @@ fingering, derived mechanically rather than sourced separately.
     migrations, then repairs any legacy data" — worth a line in
     `ARCHITECTURE.md`'s deployment section if that doc is revisited.
 
-**Stage 2 scoring test coverage: done.** `scoreRun` (`src/domain/scoring.ts`)
+**Scoring test coverage: done.** `scoreRun` (`src/domain/scoring.ts`)
 is now covered for wrong-pitch note-ons before the tonic anchors, a
 wrong-octave note after anchoring, resynchronization (a later expected
 pitch skips ahead, marking the skipped steps `missed`), extra note-ons
-after step 7 is already matched, per-step fault attribution (`faults[]`
+after the final step is already matched, per-step fault attribution (`faults[]`
 entries and per-step `hardFaultCount` summing to the aggregate),
 equal-offset tie-breaking by `sequenceNumber`, timing deviation boundary
 values, the timing exclusion window (and its restart on a second hard
 fault), overlap (note-off before/at/after the next note-on, and a missing
 note-off), velocity having no effect, and `summary.passed` against
-`maxTimingFaultsPerRun`/`maxOverlapFaultsPerRun` — see `tests/scoring.test.ts`.
+`maxTimingFaultsPerRun`, and best-fit timing residuals — see
+`tests/scoring.test.ts`.
 
 Client-side velocity-zero → `note_off` normalization
 (`src/client/midi/capture.ts`) is covered: see

@@ -133,8 +133,7 @@ function seedExercise(
       'SELECT id FROM exercises WHERE scale_id = ? AND direction = ? AND octaves = ?'
     )
     .get(scaleId, exercise.direction, exercise.octaves) as
-    | { id: number }
-    | undefined
+    { id: number } | undefined
   if (existing) return existing.id
 
   const inserted = sqlite

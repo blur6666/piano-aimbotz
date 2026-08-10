@@ -168,8 +168,7 @@ describe('catalogV1 two-octave exercises', () => {
 
   function twoOctaveAscending(slug: string) {
     return scaleBySlug(slug).exercises.find(
-      (exercise) =>
-        exercise.octaves === 2 && exercise.direction === 'ascending'
+      (exercise) => exercise.octaves === 2 && exercise.direction === 'ascending'
     )!
   }
 

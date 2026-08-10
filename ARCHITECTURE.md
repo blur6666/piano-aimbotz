@@ -469,10 +469,9 @@ Scoring lives in `src/domain/scoring`. It imports no Fastify, React, Drizzle, SQ
 
 ```ts
 type ScoringConfig = {
-  timingToleranceUs: number;
+  timingToleranceNoteFraction: number;
   overlapToleranceUs: number;
   maxTimingFaultsPerRun: number;
-  maxOverlapFaultsPerRun: number;
   recoveryWindowSteps: number;
 };
 
@@ -512,6 +511,7 @@ type ScoreRunInput = {
     }>;
   };
   tempoBpm: number;
+  notesPerBeat: number;
   events: Array<{
     sequenceNumber: number;
     offsetUs: number;
@@ -526,6 +526,7 @@ type ScoreRunInput = {
 type Assessment = {
   algorithmVersion: string;
   scoringParameters: ScoringConfig;
+  timingToleranceUs: number;
   steps: StepAssessment[];
   faults: Fault[];
   summary: {
@@ -543,7 +544,10 @@ type Assessment = {
 declare function scoreRun(input: ScoreRunInput): Assessment;
 ```
 
-All `ScoringConfig` values are non-negative integers in microseconds or counts as named. Runtime configuration validation enforces that shape. The types above are domain contracts; transport response schemas contain the same fields.
+`timingToleranceNoteFraction` is a non-negative fraction capped at 0.5. The
+remaining `ScoringConfig` values are non-negative microseconds or counts as
+named. Runtime configuration validation enforces that shape. The types above
+are domain contracts; transport response schemas contain the same fields.
 
 The detailed `steps` and `faults` result is returned to the caller but is not materialized in v1. The summary and exact configuration are persisted as the original assessment.
 
@@ -577,9 +581,10 @@ This greedy ordered matcher was chosen over matching by nearest beat. Beat-slot 
 
 Expected step `i` occurs at the integer microsecond offset:
 
-`Math.round(i * 60,000,000 / tempoBpm)` from the first expected beat.
+`Math.round(i * 60,000,000 / (tempoBpm * notesPerBeat))` from the first
+expected beat.
 
-Timing is measured against a least-squares line fitted to each run's non-excluded matched notes. A step's timing deviation is its residual from that line, so the metric measures note-to-note evenness rather than a constant device or adaptation offset. The fitted intercept at the first expected beat is returned as `timingStartOffsetUs` for feedback, but never faults a run. One note occurs per metronome beat.
+Timing is measured against a least-squares line fitted to each run's non-excluded matched notes. A step's timing deviation is its residual from that line, so the metric measures note-to-note evenness rather than a constant device or adaptation offset. The fitted intercept at the first expected beat is returned as `timingStartOffsetUs` for feedback, but never faults a run. Each metronome beat contains the run's stored `notesPerBeat` expected notes.
 
 After any hard fault, the configured number of subsequently matched notes is excluded from timing fault counts, timing sample counts, and the mean. A note that resynchronizes after marking skipped steps is the first excluded note. A later hard fault restarts the exclusion window. Excluded deviations may still be returned for display, marked as excluded.
 
@@ -595,9 +600,9 @@ Velocity does not affect any v1 result.
 
 ### Pass and progression
 
-An assessment passes only when it has zero hard faults, `timingFaultCount <= maxTimingFaultsPerRun`, and `overlapFaultCount <= maxOverlapFaultsPerRun`. Those gate values remain unselected.
+An assessment passes only when it has zero hard faults and `timingFaultCount <= maxTimingFaultsPerRun`. Overlap is measured and reported, but does not gate progression until a defensible threshold exists.
 
-Progression is a separate pure module in `src/domain/progression`. It consumes the stored original assessment, existing snapshot, and progression policy. A current lazily calculated assessment never changes progression.
+Progression is a separate pure module in `src/domain/progression`. It consumes the stored assessment, existing snapshot, and progression policy. A lazily calculated assessment returned by the run-detail endpoint never changes progression. A deliberate scoring-rule migration uses `npm run rescore-assessments` to replace stored assessments and rebuild progress from them.
 
 Three consecutive passing original assessments at the current tempo advance that exercise by the configured tempo increment and reset its streak. Failed run behavior is selected through required configuration; this document does not choose between resetting the streak and stepping the tempo down.
 

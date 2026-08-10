@@ -543,11 +543,6 @@ function App() {
                   <td>
                     {new Date(entry.firstExpectedBeatAtMs).toLocaleString()}
                   </td>
-                  <td>
-                    {formatDeviation(
-                      entry.originalAssessment.timingStartOffsetUs
-                    )}
-                  </td>
                   <td>{entry.tempoBpm} BPM</td>
                   <td>{entry.originalAssessment.hardFaultCount}</td>
                   <td>{entry.originalAssessment.timingFaultCount}</td>
@@ -555,6 +550,11 @@ function App() {
                   <td>
                     {formatDeviation(
                       entry.originalAssessment.meanAbsoluteTimingDeviationUs
+                    )}
+                  </td>
+                  <td>
+                    {formatDeviation(
+                      entry.originalAssessment.timingStartOffsetUs
                     )}
                   </td>
                   <td>

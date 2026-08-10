@@ -599,13 +599,11 @@ play it — use the computer-keyboard input if no MIDI hardware is attached:
 
 ## Not in scope
 
-This plan changes no scoring maths, so the 21 stored runs keep their
-assessments and need no re-score. `octaves DEFAULT 1` keeps them truthful about
-what they were played against. **Do not re-score anything.**
+This plan changed no scoring maths when it shipped, so its own migration did
+not require re-scoring. `octaves DEFAULT 1` keeps existing runs truthful about
+what they were played against.
 
-When scoring maths *does* change — see
-`docs/plans/latency-investigation-backlog-entry.md` — the decision is to
-re-score and rebuild progress via `rebuildExerciseProgress` in
-`src/server/progress/rebuild.ts`, driven by `npm run rebuild-progress`, with
-`src/server/db/backfill-assessments.ts` as the worked example of re-scoring
-stored runs from raw events.
+**Outcome:** the manual C-major two-octave playback check passed. A later,
+separate Stage 3 timing decision adopted best-fit-line scoring and re-scored
+stored runs with `npm run rescore-assessments`; it is not a consequence of the
+two-octave migration.
