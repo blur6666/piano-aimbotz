@@ -1,15 +1,18 @@
 // Versioned catalog data: 3 progression groups, 12 physical major scales,
-// 38 exercises: ascending + descending per scale at one octave (8 steps),
-// plus the same at two octaves (15 steps) for Group 1 and F. Right
-// hand only -- v1 scope per SPEC.md.
+// 38 exercises -- ascending + descending at one octave (8 steps) for every
+// scale, plus two octaves (15 steps) for the seven scales with sourced
+// two-octave fingering (Group 1 and F). Right hand only, per SPEC.md.
 //
-// Provenance: primary source is `fingering-reference-pianoscales-org.png`,
-// a piano fingering table attributed to pianoscales.org -- SPEC.md's
-// declared "fingering data source of record". Cross-checked against the
-// independent `major-minor-scales-fingerings.tsv`. Group 1 (C, G, D, A, E,
-// B) and Group 2 (F) fingerings are fixed by SPEC.md and match both
-// sources exactly. Group 3 (black-key scales) required reconciling the
-// two sources by hand; see the note on each scale below.
+// Practice order minimises how many physical patterns must be memorised:
+// Group 1 (C, G, D, A, E, B) shares one right-hand shape; Group 2 is F,
+// the one white-key exception; Group 3's five black-key scales each have
+// their own shape but sit most comfortably under the hand.
+//
+// Fingering source of record: docs/major-minor-fingering.md, Major Scale
+// (RH) table. Its charts are two octaves; the one-octave fingering is the
+// first seven fingers, ending on the higher finger of any "X/Y" choice.
+// Two-octave fingering repeats the seven-finger cycle and closes on the
+// original ending finger. Descending is the exact reverse of ascending.
 
 import type {
   Catalog,
@@ -19,62 +22,181 @@ import type {
   CatalogStep
 } from '../src/domain/catalog/index.js'
 
-// A major scale's interval pattern (W-W-H-W-W-W-H) is identical in every
-// key, so the ascending semitone offsets from the tonic never change --
-// only note spellings and right-hand fingering vary per scale.
+// Major scale shape (W-W-H-W-W-W-H) as semitone offsets from the tonic.
 const ASCENDING_OFFSETS = [0, 2, 4, 5, 7, 9, 11, 12] as const
 
-// Two octaves repeat the same seven-degree cycle a twelfth higher, then close
-// on the upper tonic: 0 2 4 5 7 9 11 | 12 14 16 17 19 21 23 | 24.
+// Two octaves repeat the same seven-degree cycle a twelfth higher, then
+// close on the upper tonic: 0 2 4 5 7 9 11 | 12 14 16 17 19 21 23 | 24.
 const TWO_OCTAVE_ASCENDING_OFFSETS = [
   ...ASCENDING_OFFSETS.slice(0, 7),
   ...ASCENDING_OFFSETS.slice(0, 7).map((offset) => offset + 12),
   24
 ] as const
 
-// The seven scales whose two-octave fingering follows from data this catalog
-// already documents. The five black-key scales are deliberately absent: their
-// one-octave patterns do not start on the thumb, so the repeat below is not
-// valid for them and no source here states their two-octave fingering.
-const TWO_OCTAVE_SCALE_SLUGS = new Set([
-  'c-major',
-  'g-major',
-  'd-major',
-  'a-major',
-  'e-major',
-  'b-major',
-  'f-major'
-])
-
-// Two octaves reuse the one-octave cycle: the first seven values repeat, then
-// the original closing value ends the scale. Same discipline as the descending
-// derivation below -- no new fingering data is invented, it is mechanically
-// derived from the one-octave pattern. Verified against both patterns in
-// scope:
+// Two octaves reuse the one-octave cycle: the first seven values repeat,
+// then the original closing value ends the scale. Same discipline as the
+// descending derivation below -- mechanically derived, no new data:
 //   Group 1 [1,2,3,1,2,3,4,5] -> 1 2 3 1 2 3 4 | 1 2 3 1 2 3 4 | 5
 //   F major [1,2,3,4,1,2,3,4] -> 1 2 3 4 1 2 3 | 1 2 3 4 1 2 3 | 4
-// The F result keeps the thumb on F and C throughout, which is the standard
-// right hand for that scale.
 function repeatCycle<T>(values: readonly T[]): T[] {
   const cycle = values.slice(0, 7)
   return [...cycle, ...cycle, values[7]]
 }
 
+type ScaleDefinition = {
+  slug: string
+  displayName: string
+  tonicPitchClass: number
+  group: (typeof GROUPS)[number]['slug']
+  positionInGroup: number
+  // True only for the scales whose two-octave fingering the reference
+  // documents (Group 1 plus F). The five black-key scales stay one octave:
+  // their patterns do not start on the thumb, so the cycle repeat is not
+  // valid for them.
+  twoOctave?: boolean
+  notes: readonly string[]
+  fingering: readonly number[]
+}
+
+const GROUPS = [
+  { slug: 'group-1', name: 'Group 1 — shared fingering', progressionOrder: 1 },
+  {
+    slug: 'group-2',
+    name: 'Group 2 — the white-key exception',
+    progressionOrder: 2
+  },
+  { slug: 'group-3', name: 'Group 3 — black-key scales', progressionOrder: 3 }
+] as const
+
+const SCALES = [
+  {
+    slug: 'c-major',
+    displayName: 'C major',
+    tonicPitchClass: 0,
+    group: 'group-1',
+    positionInGroup: 1,
+    twoOctave: true,
+    notes: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'g-major',
+    displayName: 'G major',
+    tonicPitchClass: 7,
+    group: 'group-1',
+    positionInGroup: 2,
+    twoOctave: true,
+    notes: ['G', 'A', 'B', 'C', 'D', 'E', 'F#', 'G'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'd-major',
+    displayName: 'D major',
+    tonicPitchClass: 2,
+    group: 'group-1',
+    positionInGroup: 3,
+    twoOctave: true,
+    notes: ['D', 'E', 'F#', 'G', 'A', 'B', 'C#', 'D'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'a-major',
+    displayName: 'A major',
+    tonicPitchClass: 9,
+    group: 'group-1',
+    positionInGroup: 4,
+    twoOctave: true,
+    notes: ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#', 'A'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'e-major',
+    displayName: 'E major',
+    tonicPitchClass: 4,
+    group: 'group-1',
+    positionInGroup: 5,
+    twoOctave: true,
+    notes: ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#', 'E'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'b-major',
+    displayName: 'B major',
+    tonicPitchClass: 11,
+    group: 'group-1',
+    positionInGroup: 6,
+    twoOctave: true,
+    notes: ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#', 'B'],
+    fingering: [1, 2, 3, 1, 2, 3, 4, 5]
+  },
+  {
+    slug: 'f-major',
+    displayName: 'F major',
+    tonicPitchClass: 5,
+    group: 'group-2',
+    positionInGroup: 1,
+    twoOctave: true,
+    notes: ['F', 'G', 'A', 'Bb', 'C', 'D', 'E', 'F'],
+    fingering: [1, 2, 3, 4, 1, 2, 3, 4]
+  },
+  {
+    slug: 'b-flat-major',
+    displayName: 'B♭ major',
+    tonicPitchClass: 10,
+    group: 'group-3',
+    positionInGroup: 1,
+    notes: ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'],
+    fingering: [2, 1, 2, 3, 1, 2, 3, 4]
+  },
+  {
+    slug: 'e-flat-major',
+    displayName: 'E♭ major',
+    tonicPitchClass: 3,
+    group: 'group-3',
+    positionInGroup: 2,
+    notes: ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D', 'Eb'],
+    fingering: [3, 1, 2, 3, 4, 1, 2, 3]
+  },
+  {
+    slug: 'a-flat-major',
+    displayName: 'A♭ major',
+    tonicPitchClass: 8,
+    group: 'group-3',
+    positionInGroup: 3,
+    notes: ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G', 'Ab'],
+    fingering: [3, 4, 1, 2, 3, 1, 2, 3]
+  },
+  {
+    slug: 'd-flat-major',
+    displayName: 'D♭ major',
+    tonicPitchClass: 1,
+    group: 'group-3',
+    positionInGroup: 4,
+    notes: ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C', 'Db'],
+    fingering: [2, 3, 1, 2, 3, 4, 1, 2]
+  },
+  {
+    slug: 'f-sharp-g-flat-major',
+    displayName: 'F♯ / G♭ major',
+    tonicPitchClass: 6,
+    group: 'group-3',
+    positionInGroup: 5,
+    notes: ['Gb', 'Ab', 'Bb', 'Cb', 'Db', 'Eb', 'F', 'Gb'],
+    fingering: [2, 3, 4, 1, 2, 3, 1, 2]
+  }
+] satisfies readonly ScaleDefinition[]
+
 // Descending is the exact reverse of ascending: notes, offsets (mirrored
-// around the upper tonic), and fingering. Matches the precedent already
-// set for C major descending (AGENTS.md: "Fingering is the reverse of
-// known ascending; no new data needed") -- no new descending data is
-// invented here, it is mechanically derived.
+// around the upper tonic), and fingering -- mechanically derived, no new
+// descending data.
 function buildOctaveExercises(
   def: ScaleDefinition,
   octaves: number
 ): CatalogExercise[] {
   const notes =
-    octaves === 1 ? [...def.ascendingNotes] : repeatCycle(def.ascendingNotes)
+    octaves === 1 ? [...def.notes] : repeatCycle(def.notes)
   const fingering =
-    octaves === 1
-      ? [...def.ascendingFingering]
-      : repeatCycle(def.ascendingFingering)
+    octaves === 1 ? [...def.fingering] : repeatCycle(def.fingering)
   const offsets =
     octaves === 1 ? ASCENDING_OFFSETS : TWO_OCTAVE_ASCENDING_OFFSETS
   const span = 12 * octaves
@@ -103,186 +225,26 @@ function buildOctaveExercises(
 
 function buildExercises(def: ScaleDefinition): readonly CatalogExercise[] {
   const exercises = buildOctaveExercises(def, 1)
-  if (TWO_OCTAVE_SCALE_SLUGS.has(def.slug))
-    exercises.push(...buildOctaveExercises(def, 2))
+  if (def.twoOctave) exercises.push(...buildOctaveExercises(def, 2))
   return exercises
 }
 
-type ScaleDefinition = {
-  slug: string
-  displayName: string
-  tonicPitchClass: number
-  positionInGroup: number
-  ascendingNotes: readonly string[]
-  ascendingFingering: readonly number[]
-}
-
-function buildScale(def: ScaleDefinition): CatalogScale {
-  return {
-    slug: def.slug,
-    displayName: def.displayName,
-    tonicPitchClass: def.tonicPitchClass,
-    positionInGroup: def.positionInGroup,
-    exercises: buildExercises(def)
-  }
-}
-
-// Group 1 -- one shared right-hand pattern for six scales. Matches both
-// sources exactly, and matches SPEC.md's explicit table.
-const GROUP_1_SHARED_FINGERING = [1, 2, 3, 1, 2, 3, 4, 5] as const
-
-const group1: CatalogGroup = {
-  slug: 'group-1',
-  name: 'Group 1 — shared fingering',
-  progressionOrder: 1,
-  scales: (
-    [
-      {
-        slug: 'c-major',
-        displayName: 'C major',
-        tonicPitchClass: 0,
-        positionInGroup: 1,
-        ascendingNotes: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      },
-      {
-        slug: 'g-major',
-        displayName: 'G major',
-        tonicPitchClass: 7,
-        positionInGroup: 2,
-        ascendingNotes: ['G', 'A', 'B', 'C', 'D', 'E', 'F#', 'G'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      },
-      {
-        slug: 'd-major',
-        displayName: 'D major',
-        tonicPitchClass: 2,
-        positionInGroup: 3,
-        ascendingNotes: ['D', 'E', 'F#', 'G', 'A', 'B', 'C#', 'D'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      },
-      {
-        slug: 'a-major',
-        displayName: 'A major',
-        tonicPitchClass: 9,
-        positionInGroup: 4,
-        ascendingNotes: ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#', 'A'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      },
-      {
-        slug: 'e-major',
-        displayName: 'E major',
-        tonicPitchClass: 4,
-        positionInGroup: 5,
-        ascendingNotes: ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#', 'E'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      },
-      {
-        slug: 'b-major',
-        displayName: 'B major',
-        tonicPitchClass: 11,
-        positionInGroup: 6,
-        ascendingNotes: ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#', 'B'],
-        ascendingFingering: GROUP_1_SHARED_FINGERING
-      }
-    ] satisfies ScaleDefinition[]
-  ).map(buildScale)
-}
-
-// Group 2 -- the one white-key exception. Matches both sources exactly.
-const group2: CatalogGroup = {
-  slug: 'group-2',
-  name: 'Group 2 — the white-key exception',
-  progressionOrder: 2,
-  scales: (
-    [
-      {
-        slug: 'f-major',
-        displayName: 'F major',
-        tonicPitchClass: 5,
-        positionInGroup: 1,
-        ascendingNotes: ['F', 'G', 'A', 'Bb', 'C', 'D', 'E', 'F'],
-        ascendingFingering: [1, 2, 3, 4, 1, 2, 3, 4]
-      }
-    ] satisfies ScaleDefinition[]
-  ).map(buildScale)
-}
-
-// Group 3 -- five separate black-key fingerings (SPEC.md: "many shapes,
-// all comfortable", not one shared pattern). Two independent sources were
-// reconciled by hand; see the note on each scale.
-const group3: CatalogGroup = {
-  slug: 'group-3',
-  name: 'Group 3 — black-key scales',
-  progressionOrder: 3,
-  scales: (
-    [
-      {
-        // B-flat: pianoscales.org (the reference image) reads
-        // 2-1-2-3-1-2-3-4. An independent source
-        // (major-minor-scales-fingerings.tsv) and SPEC.md's original
-        // prose both say B-flat starts on 4 (4-1-2-3-1-2-3-4) --
-        // identical on every other digit. Decision: use the
-        // pianoscales.org value.
-        // Alternate (TSV / SPEC.md prose): [4, 1, 2, 3, 1, 2, 3, 4]
-        slug: 'b-flat-major',
-        displayName: 'B♭ major',
-        tonicPitchClass: 10,
-        positionInGroup: 1,
-        ascendingNotes: ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'],
-        ascendingFingering: [2, 1, 2, 3, 1, 2, 3, 4]
-      },
-      {
-        // E-flat: pianoscales.org (the reference image) reads
-        // 2-1-2-3-4-1-2-3. The TSV and SPEC.md's original prose both say
-        // E-flat starts on 3 (3-1-2-3-4-1-2-3) -- identical on every
-        // other digit. Decision: use the pianoscales.org value.
-        // Alternate (TSV / SPEC.md prose): [3, 1, 2, 3, 4, 1, 2, 3]
-        slug: 'e-flat-major',
-        displayName: 'E♭ major',
-        tonicPitchClass: 3,
-        positionInGroup: 2,
-        ascendingNotes: ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D', 'Eb'],
-        ascendingFingering: [2, 1, 2, 3, 4, 1, 2, 3]
-      },
-      {
-        // A-flat: the two sources disagree with no SPEC.md tiebreaker --
-        // pianoscales.org (the reference image) reads 2-3-1-2-3-1-2-3,
-        // the TSV reads 3-4-1-2-3-1-2-3. Decision: use the TSV value.
-        // Alternate (pianoscales.org): [2, 3, 1, 2, 3, 1, 2, 3]
-        slug: 'a-flat-major',
-        displayName: 'A♭ major',
-        tonicPitchClass: 8,
-        positionInGroup: 3,
-        ascendingNotes: ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G', 'Ab'],
-        ascendingFingering: [3, 4, 1, 2, 3, 1, 2, 3]
-      },
-      {
-        // D-flat: both sources agree exactly (2-3-1-2-3-4-1-2), and it
-        // matches SPEC.md's stated starting finger (2). No conflict.
-        slug: 'd-flat-major',
-        displayName: 'D♭ major',
-        tonicPitchClass: 1,
-        positionInGroup: 4,
-        ascendingNotes: ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C', 'Db'],
-        ascendingFingering: [2, 3, 1, 2, 3, 4, 1, 2]
-      },
-      {
-        // G-flat/F-sharp: one physical scale, per SPEC.md ("Fingering is
-        // physical; the spelling difference is notational only"). Both
-        // sources agree exactly (2-3-4-1-2-3-1-2).
-        slug: 'f-sharp-g-flat-major',
-        displayName: 'F♯ / G♭ major',
-        tonicPitchClass: 6,
-        positionInGroup: 5,
-        ascendingNotes: ['Gb', 'Ab', 'Bb', 'Cb', 'Db', 'Eb', 'F', 'Gb'],
-        ascendingFingering: [2, 3, 4, 1, 2, 3, 1, 2]
-      }
-    ] satisfies ScaleDefinition[]
-  ).map(buildScale)
+function buildGroup(group: (typeof GROUPS)[number]): CatalogGroup {
+  const scales = SCALES.filter((scale) => scale.group === group.slug)
+    .sort((a, b) => a.positionInGroup - b.positionInGroup)
+    .map(
+      (def): CatalogScale => ({
+        slug: def.slug,
+        displayName: def.displayName,
+        tonicPitchClass: def.tonicPitchClass,
+        positionInGroup: def.positionInGroup,
+        exercises: buildExercises(def)
+      })
+    )
+  return { ...group, scales }
 }
 
 export const catalogV1: Catalog = {
   version: 'v1',
-  groups: [group1, group2, group3]
+  groups: GROUPS.map(buildGroup)
 }

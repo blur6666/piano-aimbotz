@@ -41,13 +41,13 @@ Everything below has been decided; the open questions at the end have not.
 - **One and two octaves** for v1, ascending and descending. Two-octave variants only where the fingering is sourced (Group 1 and F); the black-key scales stay one octave until their two-octave fingering is provenanced. Still a scope decision, not a permanent one.
 - **Ascending and descending are separate exercises.** The thumb movement differs — tuck under going up, cross over coming down — and most players are measurably worse in one direction. Do not aggregate them together.
 - **Fixed tempo for v1.** Varying tempo is wanted later. Free tempo probably never — it turns "late" from a subtraction into an inference problem.
-- Display both the scale **and** the fingering, in the style of pianoscales.org.
+- Display both the scale **and** the fingering.
 
 ### Progression
 
 Ordered by **fingering group**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, in what order.
 
-Fingering data source of record: **pianoscales.org**. Sources disagree on the black-key scales (B♭ right hand comes back as both 4-1-2-3-1-2-3-4 and 2-1-3-1-2-3-1-2 depending on where you look), so pick one authority and treat the fingering table as data rather than something recited.
+Fingering data source of record: **`docs/major-minor-fingering.md`** (right-hand major table). Its charts are two octaves; the one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice. A single authority is used and the fingering table is treated as data rather than something recited.
 
 ### Group 1 — shared fingering: C, G, D, A, E, B
 
@@ -71,7 +71,7 @@ The only right-hand exception among the white-key scales. Thumb avoids the black
 
 Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
 
-**But these do not share a pattern.** Each has its own right-hand fingering. Resolved with provenance in `catalog/v1.ts` and `catalog/README.md` (pianoscales.org, cross-checked against a second independent source): B♭, E♭, D♭, and G♭ all start on finger 2; A♭ starts on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
+**But these do not share a pattern.** Each has its own right-hand fingering. Resolved with provenance in `docs/major-minor-fingering.md`: B♭, D♭, and G♭ all start on finger 2; E♭ and A♭ start on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
 
 Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". The progression logic should know that the boundary between them changes what advancement means.
 
