@@ -28,15 +28,18 @@ In dev the app is **only at `http://localhost:5173`**. `:3000` serves the API
 and nothing else — no SPA — so it renders blank. Vite proxies `/api` from
 `:5173` to `:3000`, which is why both must be up.
 
-OpenCode's Playwright must target `:5173`, after both processes are running.
-It can drive the UI shell but **cannot complete a practice run**: Web MIDI
-needs a real keyboard and is not automatable. Hardware paths are covered by
-hand — `docs/MANUAL_ACCEPTANCE_CHECKLIST.md`.
+OpenCode's Playwright must target `:5173`, and only after both processes are
+running — OpenCode starts them itself, with the two commands above,
+backgrounded. Playwright can drive the UI shell but **cannot complete a
+practice run**: Web MIDI needs a real keyboard and is not automatable.
+Hardware paths are checked by hand — `docs/MANUAL_ACCEPTANCE_CHECKLIST.md`.
 
 `npm run start` builds and serves everything from one process on `:3000` —
 production topology, no HMR. Use it to verify a build, not to iterate.
 
-`.claude/launch.json` defines all three as `backend`, `client`, and `app`.
+Claude Code only: its Browser pane reads `.claude/launch.json`, which defines
+the same three as `backend`, `client`, and `app`. No other tool reads that
+file — OpenCode included.
 
 ## Checks
 
