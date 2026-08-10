@@ -29,9 +29,9 @@ export type RunExerciseOptions = {
   // Fired for every normalized MIDI event as it's captured, live. Best
   // effort only: never affects what's recorded or submitted.
   onLiveNote?: (event: MidiEvent) => void
-  // Practice mode (BACKLOG.md "unlocked bpm ... for a while when we
-  // test"): runs the metronome/capture/timeline exactly as normal, but
-  // never calls POST /api/runs. The server's tempo lock is an
+  // Practice mode (docs/SPEC.md, v1 "Goal"): a permanent warm-up aid, not
+  // test scaffolding. Runs the metronome/capture/timeline exactly as
+  // normal, but never calls POST /api/runs. The server's tempo lock is an
   // docs/ARCHITECTURE.md invariant ("a run submitted at any other tempo is
   // rejected") -- this respects it by never submitting an off-tempo run
   // at all, rather than bypassing the check. `exercise.tempoBpm` can

@@ -661,7 +661,7 @@ function App() {
               disabled={running}
               onChange={(event) => togglePracticeMode(event.target.checked)}
             />
-            Unlocked BPM (testing)
+            Practice tempo (not scored)
           </label>
           {practiceMode && (
             <input
@@ -684,7 +684,8 @@ function App() {
         )}
         {practiceMode && (
           <p className="dev-tools-note">
-            Practice mode: runs at the tempo above without saving progress or
+            Practice tempo: a warm-up aid (docs/SPEC.md, "Goal"), not
+            scaffolding. Runs at the tempo above without saving progress or
             history. The server's tempo lock (docs/ARCHITECTURE.md) is never
             bypassed -- practice runs simply aren't submitted.
           </p>
