@@ -1,6 +1,6 @@
 ---
 description: Authors and reviews SQL migrations and seed changes
-mode: primary
+mode: all
 model: opencode-go/glm-5.2
 temperature: 0.1
 permission:

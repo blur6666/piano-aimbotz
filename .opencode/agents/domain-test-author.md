@@ -1,6 +1,6 @@
 ---
 description: Writes Vitest tests for scoring and progression from the named rule list
-mode: primary
+mode: all
 model: opencode-go/deepseek-v4-pro
 temperature: 0.2
 permission:

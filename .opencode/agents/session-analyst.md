@@ -1,6 +1,6 @@
 ---
 description: Read-only analysis of piano.db; produces a numbered report
-mode: primary
+mode: all
 model: opencode-go/grok-4.5
 temperature: 0.3
 permission:
