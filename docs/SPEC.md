@@ -35,19 +35,6 @@
 
 ---
 
-## Out of scope
-
-**Not v1, each its own project or later increment:** sight-reading, rhythm exercises beyond straight eighths/quarters, sheet music rendering, two hands, more than two octaves, arpeggios, free tempo.
-
-**Not v1, and not planned:** a hard scale-lock or "unlock table" that blocks a scale until an earlier one is mastered. Scale progression itself — tracking readiness and recommending the next scale — is very much in v1; it just stays sandbox-style: advisory, not enforced. Nothing about the current design gates navigation (see "Product vision").
-
-**Deferred, to be decided from real session data rather than guessed up front:**
-
-- **Failed-run behavior and thresholds.** Whether a failed run resets the consecutive-clean-run counter or steps the tempo down, and the actual soft-fault tolerances, timing/overlap tolerances, tempo increment, tempo decrement, and starting tempo. These are tuning parameters, not architecture — see `ARCHITECTURE.md`'s "Configuration and deferred decisions."
-- **Extra-note debounce.** Deferred by decision; will likely need revisiting once there's real data on how aggressive the current all-extras-are-hard-faults rule feels in practice.
-
----
-
 ## Product vision
 
 **It is both a tool and a toy.** As a tool, it's a guided practice path: start at the easiest scale (C major), and get told when you're actually ready to move on rather than guessing. As a toy, that same guidance is deliberately gamified — visible streaks, a climbing tempo number, a scale list you're working through — because the point is to stay motivated to keep practising, not just to have accurate measurement for its own sake.
@@ -61,45 +48,85 @@
 
 ---
 
-## First deliverable (v1)
+# Deliverables
 
-### Exercise shape
+## First deliverable (v1-mvp)
 
-- **One hand only** (right hand). Not permanent — revisit later.
-- **One and two octaves**, ascending and descending. Two-octave variants only where the fingering is sourced (Group 1 and F); the black-key scales stay one octave until their two-octave fingering is provenanced. Still a scope decision, not a permanent one.
-- **Ascending and descending are separate exercises.** The thumb movement differs — tuck under going up, cross over coming down — and most players are measurably worse in one direction. Do not aggregate them together.
-- **Fixed tempo.** Varying tempo is wanted later. Free tempo probably never — it turns "late" from a subtraction into an inference problem.
-- Display both the scale and the fingering.
+### **Goal**: 
+The user will be able to study their first scales already (major scales). It will still be a "sandbox", beta environment because we are still learning at this stage. Instead of real progression, the implemented scales will all be available via dropdown and the tempo can be customized freely. Even though. A first implementation of the progression will be present: through measuring and scoring sucessive runs, and given a few constants that are temporary, the player will "go up a level" increasing the BPM. By constants I mean: 3 sucessive runs with >90% accuracy. We'll need real data to choose good coeficients.
+
+### Exercises shapes and motion
+
+- **Scales for right hand only** Might be revisited later.
+- **Support for one or two octaves only**, ascending and 
+- **Only ascending and descending motions**
+  - No arpeggios or complex patterns 
+- **Ascending and descending will be scored separately.** 
+  - The thumb movement differs — tuck under going up, cross over coming down — and most players are measurably worse in one direction
+  - Do not aggregate their data together
+- **Fixed tempo per run.** 
+  - Varying tempo is wanted later. Free tempo probably never — it turns "late" from a subtraction into an inference problem.
+  - Display both the scale and the fingering.
+  - Option to repeat runs one after the other automastically (separated by a count-in)
+- **Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table). 
+  - Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice. 
+  - A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
+
+
+## Second deliverable (v2)
 
 ### Progression
 
-Ordered by **fingering group**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, in what order. C major is the first scale a player sees.
+We will follow common practice in piano lessons: ordered by **fingering pattern**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, in what order. Accelerating the progress and mnotivation. C major is the first scale a player sees.
 
-**Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table). Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice. A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
+- **At this stage**, the user wont be in sandbox mode anymore, and improving his technique and achieving the set goals will be necessary to increasing BPM, with good accuracy, until the next scale is unlockied
 
-**Group 1 — shared fingering: C, G, D, A, E, B.** Six scales, one right-hand pattern: **1-2-3-1-2-3-4-5**. Learn the shape once.
+**Group 1 — shared fingering: C, G, D, A, E, B.** 
+- Six scales, one right-hand pattern: **1-2-3-1-2-3-4-5**. Learn the shape once.
 
-Note the hand asymmetry, which matters because v1 is right hand only:
 
-| Scale | RH | LH |
+| Key | Notes | Fingering | 
 | --- | --- | --- |
-| C, G, D, A, E | 1-2-3-1-2-3-4-5 | 5-4-3-2-1-3-2-1 |
-| **B** | 1-2-3-1-2-3-4-5 (standard) | **4-3-2-1-4-3-2-1** (unique) |
-| **F** | **1-2-3-4-1-2-3-4** (unique) | 5-4-3-2-1-3-2-1 (standard) |
+| C | `C  D  E  F  G  A  B  C` | 1-2-3-1-2-3-4-5 | 
+| G | `G  A  B  C  D  E  F# G` | 1-2-3-1-2-3-4-5 | 
+| D | `D  E  F# G  A  B  C# D` | 1-2-3-1-2-3-4-5 | 
+| A | `A  B  C# D  E  F# G# A` | 1-2-3-1-2-3-4-5 | 
+| E | `E  F# G# A  B  C# D# E` | 1-2-3-1-2-3-4-5 | 
+| B | `B  C# D# E  F# G# A# B` | 1-2-3-1-2-3-4-5 | 
 
-B is a left-hand exception, not a right-hand one — so for a right-hand v1 it belongs in Group 1. F is the reverse.
+- B is a left-hand exception, not a right-hand one — so for a right-hand v1 it belongs in Group 1. F is the reverse.
 
-**Group 2 — the white-key exception: F.** The only right-hand exception among the white-key scales. Thumb avoids the black key, so the pattern shifts and the octave ends on 4 rather than 5.
+**Group 2 — the white-key exception: F.** 
+- The only right-hand exception among the white-key scales.
+- Thumb avoids the black key, so the pattern shifts and the octave ends on 4 rather than 5.
 
-**Group 3 — black-key scales: B♭, E♭, A♭, D♭, G♭.** Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
+| Key | Notes | Fingering | 
+| --- | --- | --- |
+| F | `F G A Bb C D E F` | 1-2-3-4-1-2-3-4 | 
 
-**But these do not share a pattern.** Each has its own right-hand fingering, resolved with provenance in `docs/SCALES_FINGERING_REFERENCE.md`: B♭, D♭, and G♭ all start on finger 2; E♭ and A♭ start on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
+**Group 3 — black-key scales: B♭, E♭, A♭, D♭, G♭.** 
+- Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
+
+| Key | Notes | Fingering | 
+| --- | --- | --- |
+| Bb | `Bb C  D  Eb F  G  A Bb` | 2-1-2-3-1-2-3-4 | 
+| Eb | `Eb F  G  Ab Bb C  D Eb` | 3-1-2-3-4-1-2-3 | 
+| Ab | `Ab Bb C  Db Eb F  G Ab` | 3-4-1-2-3-1-2-3 | 
+| Db | `Db Eb F  Gb Ab Bb C Db` | 2-3-1-2-3-4-1-2 | 
+| Gb | `Gb Ab Bb B  Db Eb F Gb` | 2-3-4-1-2-3-1-2 | 
+
+
+**But these do not share a pattern.** 
+- Each has its own right-hand fingering, resolved with provenance in `docs/SCALES_FINGERING_REFERENCE.md`: 
+- B♭, D♭, and G♭ all start on finger 2; 
+- E♭ and A♭ start on finger 3. 
+- Five separate memorisations, made easier by hand position rather than by a common shape.
+
+----
 
 Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". The progression logic should know that the boundary between them changes what advancement means.
 
-**F♯ and G♭ are one entry, not two.** Identical keys, identical fingering. Fingering is physical; the spelling difference is notational only.
-
-Twelve entries total.
+**F♯ and G♭ are one entry, not two.** Identical keys, identical fingering. Fingering is physical; the spelling difference is notational only. They are enharmonic.
 
 ### Advancement rule
 
@@ -144,3 +171,18 @@ Store raw events, not derived aggregates: **the number of messages in a run is u
 This also settles the raw-versus-aggregate question generally: keep raw events so old sessions can be re-analysed whenever the scoring logic improves, or whenever a new kind of analysis (like the rushing/slowing detection under "Product vision") gets built. Derived per-step stats may be materialised into their own table later if query performance calls for it.
 
 The realized schema lives in `ARCHITECTURE.md` and is the authority — this section states the storage philosophy behind it, not the table layout.
+
+## Might go into v2 scope if easy
+- Sheet music rendering - We've implemented very easily in other project due to easy to ue. library. It is good for the student to learn both the movement and notation at the same time or not that far appart.
+
+## Out of scope
+
+**Not v1, each its own project or later increment:** sight-reading, rhythm exercises beyond straight eighths/quarters, two hands, more than two octaves, arpeggios, free tempo.
+
+**Deferred, to be decided from real session data rather than guessed up front:**
+
+- **Failed-run behavior and thresholds.** Whether a failed run resets the consecutive-clean-run counter or steps the tempo down, and the actual soft-fault tolerances, timing/overlap tolerances, tempo increment, tempo decrement, and starting tempo. These are tuning parameters, not architecture — see `ARCHITECTURE.md`'s "Configuration and deferred decisions."
+- **Extra-note debounce.** Deferred by decision; will likely need revisiting once there's real data on how aggressive the current all-extras-are-hard-faults rule feels in practice.
+
+
+---
