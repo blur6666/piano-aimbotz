@@ -14,7 +14,7 @@ No active items.
   best-fit line, reports the fitted start offset separately, and does not apply
   a guessed audio or BLE MIDI latency correction. Existing runs are explicitly
   re-scored with `npm run rescore-assessments`, which also rebuilds progress.
-- **Catalog refactor:** `docs/major-minor-fingering.md` is now the sole RH
+- **Catalog refactor:** `docs/SCALES_FINGERING_REFERENCE.md` is now the sole RH
   fingering reference; `catalog/v1.ts` is a compact dict with the provenance
   prose stripped. Per the reference, E-flat major ascending starts on finger
   3; migration `0010` corrects the two stored E-flat cells.

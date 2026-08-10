@@ -86,7 +86,7 @@ violate by accident:
 - Migrations apply exactly once via `schema_migrations`
   (`src/server/db/apply-migrations.ts`). `IF NOT EXISTS` idempotency is not
   enough once a migration drops a column or rebuilds a table.
-- Fingerings come only from `docs/major-minor-fingering.md` (right-hand major
+- Fingerings come only from `docs/SCALES_FINGERING_REFERENCE.md` (right-hand major
   table, the sole reference). One-octave fingerings are the first seven
   fingers, ending on the higher finger of any "X/Y" choice; descending is the
   exact reverse of ascending. Never invent fingerings or provenance; change

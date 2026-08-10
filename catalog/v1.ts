@@ -8,7 +8,7 @@
 // the one white-key exception; Group 3's five black-key scales each have
 // their own shape but sit most comfortably under the hand.
 //
-// Fingering source of record: docs/major-minor-fingering.md, Major Scale
+// Fingering source of record: docs/SCALES_FINGERING_REFERENCE.md, Major Scale
 // (RH) table. Its charts are two octaves; the one-octave fingering is the
 // first seven fingers, ending on the higher finger of any "X/Y" choice.
 // Two-octave fingering repeats the seven-finger cycle and closes on the

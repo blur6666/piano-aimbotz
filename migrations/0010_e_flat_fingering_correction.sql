@@ -1,5 +1,5 @@
 -- Corrects E-flat major right-hand fingering to the resolved source of
--- record (docs/major-minor-fingering.md): ascending starts on finger 3,
+-- record (docs/SCALES_FINGERING_REFERENCE.md): ascending starts on finger 3,
 -- not 2, and descending (its exact reverse) ends on finger 3. Only these
 -- two cells change.
 --
