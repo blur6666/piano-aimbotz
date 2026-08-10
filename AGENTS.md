@@ -67,6 +67,27 @@ is LF). The usual cause is a worktree checked out before those rules landed;
 commit or stash, then `git rm --cached -r . && git reset --hard`. Do not reach
 for a repo-wide `prettier --write` — it buries the cause in a whole-file diff.
 
+## Agent roster
+
+`.opencode/agents/` holds seven scoped agents, each accountable to one
+written rule set. Run them with `opencode run --agent <name> "<task>"`.
+
+| Agent | Guards | Run it |
+| --- | --- | --- |
+| `gate` | The check block above | Before calling any change done |
+| `invariant-auditor` | `docs/ARCHITECTURE.md` invariants, `docs/SPEC.md` scope | On every non-trivial diff |
+| `schema-smith` | `migrations/`, `src/server/db/` | Whenever the schema or seed changes |
+| `domain-test-author` | The named test lists in `docs/ARCHITECTURE.md` | When domain behaviour changes |
+| `catalog-provenance` | `catalog/v1.ts` fingering data and `docs/SCALES_FINGERING_REFERENCE.md` | Before any catalog edit lands |
+| `session-analyst` | Reads `piano.db` read-only, writes `reports/` | When tuning deferred thresholds |
+| `scribe` | Doc drift in `AGENTS.md`, `docs/` | After the code moves ahead of the docs |
+
+`invariant-auditor` and `catalog-provenance` cannot edit files — they report,
+you apply.
+
+Model choice per agent is recorded in each agent's frontmatter. Cheap tiers do
+mechanical work.
+
 ## Invariants
 
 Full list: `docs/ARCHITECTURE.md` → "Invariants that must not be rediscovered".
