@@ -36,6 +36,12 @@ export type ScaleKey = {
   octave: number
 }
 
+// A scale spans N octave intervals but includes both tonic endpoints, so the
+// C-to-C reference keyboard needs one additional drawn octave to contain it.
+export function keyboardOctaveCount(exerciseOctaves: number): number {
+  return exerciseOctaves + 1
+}
+
 // Exercise steps carry only a spelling and a finger, no MIDI pitch, but a
 // scale run is monotonic: each ascending step is higher than the one before
 // it. So a wrap in pitch class (C after B going up, B after C going down)
