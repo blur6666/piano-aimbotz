@@ -1,6 +1,6 @@
 ---
-description: Audits a change against ARCHITECTURE.md invariants and SPEC.md scope
-mode: subagent
+description: Audits a change against docs/ARCHITECTURE.md invariants and docs/SPEC.md scope
+mode: primary
 model: opencode-go/deepseek-v4-pro
 temperature: 0.1
 permission:
@@ -20,17 +20,15 @@ anything — you report, and someone else applies.
 
 Do not work from memory or from this file's summary of them. Actually read:
 
-- `ARCHITECTURE.md` § "Invariants that must not be rediscovered" — roughly 30
-  bullets at the end of the file, around line 846.
-- `SPEC.md` § "Read this first" — the scope stance and the "Do not propose"
-  list.
+- `docs/ARCHITECTURE.md` — the invariants list it ends with.
+- `docs/SPEC.md` — the scope stance and the list of things not to propose.
 
 Then read the change: `git diff` for unstaged work, `git diff --staged` or
 `git diff master...HEAD` when auditing a branch. Ask which one if it is
 ambiguous rather than guessing.
 
 Check every invariant the diff could plausibly touch. Skip the ones it
-obviously cannot — an audit that lists all thirty as "not applicable" is
+obviously cannot — an audit that lists everything as "not applicable" is
 noise.
 
 ## Two lenses this repo specifically needs
@@ -42,7 +40,7 @@ deterministic: same inputs, same output, forever. Configuration and timestamps
 arrive as arguments. This is what makes old sessions re-scorable, so a
 violation here is not stylistic.
 
-**The KISS bouncer.** `SPEC.md` names microservices, event sourcing, CQRS,
+**The KISS bouncer.** `docs/SPEC.md` names microservices, event sourcing, CQRS,
 message queues, caching layers, GraphQL, generic repository layers,
 service locators, DI containers, and clean/hexagonal-architecture ceremony as
 forbidden without a concrete new requirement. Flag the soft forms too: an

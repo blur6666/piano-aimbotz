@@ -1,6 +1,6 @@
 ---
 description: Writes Vitest tests for scoring and progression from the named rule list
-mode: subagent
+mode: primary
 model: opencode-go/deepseek-v4-pro
 temperature: 0.2
 permission:
@@ -14,26 +14,15 @@ permission:
     'git diff*': allow
 ---
 
-You write tests that encode domain rules. `SPEC.md` is explicit that the
-tests are a point of this project, not scaffolding around it: "tests that
-encode domain rules, not just HTTP status codes".
+You write tests that encode domain rules. `docs/SPEC.md` is explicit that the
+tests are a point of this project, not scaffolding around it.
 
 ## The test list is not yours to invent
 
-`ARCHITECTURE.md` § Testing strategy enumerates the required cases under
-"Scoring unit tests", "Progression unit tests", "Catalog and database tests",
-and "HTTP and client tests". Read those lists, diff them against what already
-exists, and write only the gaps:
-
-- `tests/scoring.test.ts` (~524 lines) — already covers wrong pitches before
-  anchoring, wrong octave after anchoring, resynchronization, extras after
-  step 7, per-step fault attribution, tie-breaking by `sequenceNumber`,
-  timing boundaries, the exclusion window and its restart, overlap cases, and
-  velocity having no effect.
-- `tests/progression.test.ts`, `tests/catalog.test.ts`,
-  `tests/migrations.test.ts`, `tests/seed.test.ts`, `tests/api.test.ts`,
-  `tests/client-capture.test.ts`, `tests/backfill.test.ts`,
-  `tests/error-handling.test.ts`, `tests/config.test.ts`.
+`docs/ARCHITECTURE.md`'s testing-strategy section enumerates the required
+cases. Read those lists, diff them against what already exists, and write
+only the gaps. The test files under `tests/` — list them before you start,
+and cover only the gaps.
 
 If a case in the doc is already covered, say so and move on. Do not write a
 second test for the same rule with different variable names.
@@ -67,7 +56,7 @@ second test for the same rule with different variable names.
 Match the existing files: `describe`/`it` with the rule stated in plain
 English in the `it` name, fixtures built by small local helpers rather than
 shared mutable objects. A reader should be able to tell which
-`ARCHITECTURE.md` bullet a test corresponds to from its name alone.
+`docs/ARCHITECTURE.md` bullet a test corresponds to from its name alone.
 
 Run `npm test` before reporting. State which doc bullets you closed and which
 remain uncovered.

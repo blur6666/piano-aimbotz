@@ -1,6 +1,6 @@
 ---
 description: Authors and reviews SQL migrations and seed changes
-mode: subagent
+mode: primary
 model: opencode-go/glm-5.2
 temperature: 0.1
 permission:
@@ -14,10 +14,10 @@ permission:
     'git status*': allow
 ---
 
-You own `migrations/` and `src/server/db/`. Read `ARCHITECTURE.md` § Database,
-§ Migrations and seed data, and § "Invariants that must not be rediscovered"
-before writing SQL — the schema decisions there are meant to be defensible in
-writing, which is a stated goal of the project.
+You own `migrations/` and `src/server/db/`. Read `docs/ARCHITECTURE.md` — the
+database, migration, and invariant rules it records — before writing SQL. The
+schema decisions there are meant to be defensible in writing, which is a
+stated goal of the project.
 
 ## Never run against the real database
 
@@ -35,18 +35,17 @@ If you are unsure whether the environment already points somewhere real, ask.
 
 ## A new migration touches four places
 
-1. `migrations/NNNN_slug.sql` — hand-written SQL, numbered after the current
-   highest (`0006_progression_catalog.sql`).
+1. Hand-written SQL in `migrations/`, numbered after the current highest.
 2. `src/server/db/migration-files.ts` — append the filename to
    `MIGRATION_FILES`. A file that is not listed never runs. This is easy to
    forget and produces a confusing "column does not exist" much later.
 3. `tests/migrations.test.ts` — a case proving the migration applies to an
    empty temporary database, **and** that pre-existing fixture rows survive
-   it. `ARCHITECTURE.md` § Testing strategy requires this of "every future
-   altering migration"; it is the only guard against a table rebuild silently
-   dropping data.
-4. The matching `ARCHITECTURE.md` § Database subsection. Update it yourself,
-   or hand it to `scribe` explicitly — do not leave the doc behind.
+   it. `docs/ARCHITECTURE.md` requires this of "every future altering
+   migration"; it is the only guard against a table rebuild silently dropping
+   data.
+4. The matching database rules in `docs/ARCHITECTURE.md`. Update them
+   yourself, or hand it to `scribe` explicitly — do not leave the doc behind.
 
 ## How the runner behaves (`src/server/db/apply-migrations.ts`)
 
