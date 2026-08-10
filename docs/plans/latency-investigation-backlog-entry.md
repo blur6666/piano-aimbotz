@@ -20,8 +20,8 @@ correction overcorrects settled runs."*
 Neither position has enough evidence to win yet, so the item becomes a research
 task rather than an implementation task. Do not implement either approach.
 
-Two incidental notes: the migration number `0008` is taken by
-`docs/plans/two-octave-scales.md` regardless, and that plan ships first.
+The migration number `0008` is taken by the two-octave-scales migration, which
+shipped first.
 
 ## The edit
 

@@ -1,6 +1,6 @@
 # Manual hardware acceptance checklist
 
-CI does not attempt hardware MIDI automation (`ARCHITECTURE.md`, "Testing
+CI does not attempt hardware MIDI automation (`docs/ARCHITECTURE.md`, "Testing
 strategy"). Browser-level MIDI emulation was rejected because it would test
 a mock more than the hardware integration. This checklist is the
 replacement: run it by hand, on real hardware, in the supported browser,
@@ -50,7 +50,7 @@ practice run flow.
      into the scale beats (`Scale 1: 1/4` label style), then `Finishing`.
    - [ ] The click continues through all 8 expected notes, not just the
      count-in — this is a practice tool with the metronome always running,
-     per `SPEC.md`.
+     per `docs/SPEC.md`.
    - [ ] Click timing sounds steady (no audible drift or stutter) across
      the whole run.
 
@@ -75,7 +75,7 @@ practice run flow.
      error.
    - [ ] The browser DevTools console shows exactly one `POST /api/runs`
      request for the run (Network tab), matching "a run is sent once,
-     after its fixed capture window" (`ARCHITECTURE.md`).
+     after its fixed capture window" (`docs/ARCHITECTURE.md`).
    - [ ] The History panel for the exercise shows the new run immediately
      without a manual page reload.
    - [ ] Clicking the new history row expands per-step detail

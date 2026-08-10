@@ -30,7 +30,7 @@ No active items.
     progress rows and calls `scoreRun` _before_ opening the
     `sqlite.transaction(...)` block, not inside it. `better-sqlite3` is
     synchronous so there is no real race, but it does not match
-    `ARCHITECTURE.md`'s "loads the exercise and progress rows... inside" one
+    `docs/ARCHITECTURE.md`'s "loads the exercise and progress rows... inside" one
     transaction. Moving the reads into the transaction callback would match the
     doc exactly, at the cost of a slightly larger callback. Not urgent.
 - **[CLARIFICATION] Doc fixes**
@@ -39,7 +39,7 @@ No active items.
     with each backfilled run in its own transaction rather than one transaction
     for the batch. Safe, but it turns "startup runs migrations only" into
     "startup runs migrations, then repairs any legacy data"; worth a line in
-    `ARCHITECTURE.md`'s deployment section.
+    `docs/ARCHITECTURE.md`'s deployment section.
   - _Note:_ Repo-layout drift (`tests/fixtures/`, `tests/integration/` listed but absent — `catalog/` and `src/domain/catalog/` now exist for real).
 
 ---
