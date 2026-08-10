@@ -93,7 +93,7 @@ When `step_down` is selected, configuration validation requires the minimum temp
 
 Scoring and progression algorithm versions are code constants, not operator configuration. Changing behavior requires changing the version.
 
-The fingering source of record is `docs/SCALES_FINGERING_REFERENCE.md` (right-hand major table, two octaves). One-octave fingerings are derived by taking the first seven fingers and ending on the higher finger of any "X/Y" choice; for each one-octave exercise, descending fingering is the ascending sequence in reverse. The catalog is seeded and runnable. Any future fingering change must come from that reference, not be invented by an agent.
+The fingering source of record is `docs/SCALES_FINGERING_REFERENCE.md` (right-hand major table, two octaves). One-octave fingerings are derived by taking the first seven fingers and ending on the higher finger of any "X/Y" choice. Two-octave fingerings are derived by repeating those seven and closing on the eighth, which reproduces the chart for eleven of the twelve scales; B-flat major is the sole exception and is stored verbatim from the chart, because its second octave starts on the finger that closes the first. For every exercise, descending fingering is the ascending sequence in reverse. The catalog is seeded and runnable. Any future fingering change must come from that reference, not be invented by an agent.
 
 Velocity is captured but ignored by v1 scoring. Extra-note debounce is not implemented in v1; every duplicate or adjacent note remains a hard fault until the deferred decision is revisited.
 
@@ -163,9 +163,9 @@ There is a unique constraint on `(progression_group_id, position_in_group)`.
 
 There is a unique constraint on `(scale_id, direction, octaves)`.
 
-Hand and rhythmic subdivision are not columns. V1 has one right hand. Octave count is a column because two-octave variants are seeded for the scales whose fingering is sourced; the check bounds it to the values (1 and 2) the catalog can actually supply. Rhythmic subdivision stays out of the exercise table — `notes_per_beat` is a per-run user preference, not an exercise dimension. Adding speculative dimensions beyond these would permit invalid combinations that the product cannot perform.
+Hand and rhythmic subdivision are not columns. V1 has one right hand. Octave count is a column because every scale is seeded at one and two octaves; the check bounds it to the values (1 and 2) the catalog can actually supply. Rhythmic subdivision stays out of the exercise table — `notes_per_beat` is a per-run user preference, not an exercise dimension. Adding speculative dimensions beyond these would permit invalid combinations that the product cannot perform.
 
-The seed validator enforces that every scale has one-octave exercises and that each octave count a scale offers is a complete ascending/descending pair — up to four exercises per scale and 38 in total.
+The seed validator enforces that every scale offers both octave counts, and that each is a complete ascending/descending pair — four exercises per scale and 48 in total.
 
 ### `exercise_steps`
 
@@ -292,7 +292,7 @@ SQLite enforces:
 
 The application enforces:
 
-- exact catalog membership and 3 groups / 12 scales / 38 exercises (8 or 15 steps each)
+- exact catalog membership and 3 groups / 12 scales / 48 exercises (8 or 15 steps each)
 - musical consistency of tonic pitch classes, offsets, note spellings, and fingering
 - immutable catalog definitions after runs reference them
 - contiguous event sequence numbers beginning at zero
@@ -818,7 +818,8 @@ Tests cover:
 - seed refuses to overwrite a conflicting existing definition
 - seed refuses to change a persisted initial tempo or reset current progress
 - normal application updates cannot modify the initial tempo
-- explicitly specified Group 1 and F fingerings are enforced independently of the deferred source for the remaining dataset
+- every scale's fingering matches the reference chart at both octave counts
+- the B-flat two-octave sequence is asserted explicitly, since it is the one case a cycle repeat would get wrong
 - incorrect B-flat, E-flat, or D-flat starting fingers are rejected
 - every descending fingering sequence must be the exact reverse of its ascending sequence
 - all migrations apply to an empty temporary SQLite database
@@ -864,7 +865,7 @@ Coverage is a diagnostic, not a substitute for the named rule tests. The scoring
 - Scale order follows fingering groups, not accidental count.
 - Group order recommends practice order; it does not lock exercises.
 - Catalog rows are seeded data, not source-code conditionals or schema migrations.
-- Explicit Group 1 and F fingerings and stated black-key starting fingers in `SPEC.md` are fixed; descending fingering reverses ascending fingering. The source and remaining black-key fingerings stay unresolved until configured with provenance; agents must not invent them.
+- Fingerings come from `docs/SCALES_FINGERING_REFERENCE.md` and nowhere else; agents must never invent one. Descending reverses ascending. Two-octave fingering is the seven-finger cycle repeated, except B-flat major, which is stored verbatim.
 - Catalog definitions cannot change in place after historical runs reference them.
 - A run is sent once, after its fixed browser capture window, and persisted atomically only when complete.
 - The server-provided current tempo is authoritative; a run submitted at any other tempo is rejected.

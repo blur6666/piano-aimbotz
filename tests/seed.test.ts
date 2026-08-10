@@ -51,17 +51,17 @@ describe('seedCatalog', () => {
     ).toEqual({ count: 12 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercises').get()
-    ).toEqual({ count: 38 })
+    ).toEqual({ count: 48 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercise_steps').get()
-    ).toEqual({ count: 24 * 8 + 14 * 15 })
+    ).toEqual({ count: 24 * 8 + 24 * 15 })
     expect(
       sqlite
         .prepare(
           'SELECT count(*) AS count FROM exercise_progress WHERE current_tempo_bpm = 60 AND consecutive_clean_runs = 0'
         )
         .get()
-    ).toEqual({ count: 38 })
+    ).toEqual({ count: 48 })
 
     sqlite.close()
   })
@@ -108,10 +108,10 @@ describe('seedCatalog', () => {
 
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercises').get()
-    ).toEqual({ count: 38 })
+    ).toEqual({ count: 48 })
     expect(
       sqlite.prepare('SELECT count(*) AS count FROM exercise_steps').get()
-    ).toEqual({ count: 24 * 8 + 14 * 15 })
+    ).toEqual({ count: 24 * 8 + 24 * 15 })
 
     sqlite.close()
   })
@@ -228,7 +228,7 @@ describe('seedCatalog', () => {
           'SELECT count(*) AS count FROM exercise_progress WHERE initial_tempo_bpm = 60'
         )
         .get()
-    ).toEqual({ count: 38 })
+    ).toEqual({ count: 48 })
 
     sqlite.close()
   })
