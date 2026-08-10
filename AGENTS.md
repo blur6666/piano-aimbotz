@@ -1,135 +1,85 @@
 # Agent and contributor guide
 
-This file orients AI coding agents (and human contributors) working in this
-repo. Read `SPEC.md` (product intent, scope) and `ARCHITECTURE.md`
-(implementation decisions, invariants) first — they are the sources of
-truth. This file is operational: how to run things, and what's known to
-still be missing.
+`SPEC.md` (product intent) and `ARCHITECTURE.md` (decisions, invariants) are
+the sources of truth — read them before changing behavior. This file is
+operational only. Open work lives in `docs/BACKLOG.md`.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # edit values if you want different tolerances/tempo
+cp .env.example .env   # edit for different tolerances/tempo
 npm run migrate
 npm run seed
 ```
 
-## Running
+## Running the app
 
-- `npm run dev` + `npm run dev:client` (two terminals) — backend on
-  `:3000`, Vite dev server with HMR on `:5173`, proxying `/api` to `:3000`.
-- `npm run start` — builds and runs the compiled server as one process on
-  `:3000` (matches the production topology).
+Dev is **two** processes. Both are watchers: they never exit, so **background
+them** — run each in its own terminal, or as a backgrounded task. A foreground
+`npm run dev` blocks until killed.
+
+```bash
+npm run dev          # Fastify backend, :3000 — watcher, does not exit
+npm run dev:client   # Vite dev server + HMR, :5173 — watcher, does not exit
+```
+
+In dev the app is **only at `http://localhost:5173`**. `:3000` serves the API
+and nothing else — no SPA — so it renders blank. Vite proxies `/api` from
+`:5173` to `:3000`, which is why both must be up.
+
+OpenCode's Playwright must target `:5173`, after both processes are running.
+It can drive the UI shell but **cannot complete a practice run**: Web MIDI
+needs a real keyboard and is not automatable. Hardware paths are covered by
+hand — `docs/MANUAL_ACCEPTANCE_CHECKLIST.md`.
+
+`npm run start` builds and serves everything from one process on `:3000` —
+production topology, no HMR. Use it to verify a build, not to iterate.
+
+`.claude/launch.json` defines all three as `backend`, `client`, and `app`.
 
 ## Checks
 
-Run all of these before considering a change done:
+All of these must pass before a change is done. CI
+(`.github/workflows/ci.yml`) runs the same set plus migrate+seed against a
+temporary database.
 
 ```bash
 npm run typecheck
 npm run lint
 npm run format:check   # npx prettier --write <files> to fix
-npm test                # npm run test:coverage for coverage
+npm test               # npm run test:coverage for coverage
 npm run build
 ```
 
-`.github/workflows/ci.yml` runs all of the above, plus migrate+seed against
-a temporary database.
+If `format:check` fails on files you did not touch and `git diff` shows
+nothing, suspect CRLF rather than formatting — `.gitattributes` pins the tree
+to LF. Confirm with `head -3 package.json | cat -A` (`^M$` is CRLF, plain `$`
+is LF). The usual cause is a worktree checked out before those rules landed;
+commit or stash, then `git rm --cached -r . && git reset --hard`. Do not reach
+for a repo-wide `prettier --write` — it buries the cause in a whole-file diff.
 
-### Line endings
+## Invariants
 
-`.gitattributes` pins the working tree to LF on every platform, so
-`format:check` sees the same bytes on Windows as CI does on ubuntu. If it
-ever fails on a pile of files you did not touch, and `git diff` shows
-nothing, suspect CRLF before reaching for `prettier --write` — a mass
-reformat buries the cause under a whole-file diff. Confirm with:
+Full list: `ARCHITECTURE.md` → "Invariants that must not be rediscovered".
+Read it before touching scoring, progression, or the schema. Easiest to
+violate by accident:
 
-```bash
-head -3 package.json | cat -A   # ^M$ means CRLF, plain $ means LF
-```
-
-A stale worktree is the usual reason: editing `.gitattributes` does not
-rewrite files git already considers up to date, so a checkout made before
-those rules landed keeps its CRLF. Commit or stash first, then refresh the
-tree once:
-
-```bash
-git rm --cached -r . > /dev/null
-git reset --hard                 # re-checkout, applying .gitattributes
-```
-
-## Invariants worth restating
-
-The full list lives in `ARCHITECTURE.md`'s "Invariants that must not be
-rediscovered" section — read that before touching scoring, progression, or
-the database schema. A few that are easy to violate by accident:
-
-- One user, one process, one SQLite file. No microservices, queues, CQRS,
-  or other architecture ceremony without a concrete new requirement.
+- One user, one process, one SQLite file. No queues, services, or CQRS
+  without a concrete new requirement.
 - `src/domain/scoring.ts` and `src/domain/progression/` are pure and
-  deterministic — no Fastify, Drizzle, filesystem, or clock dependency.
-- Every persisted run must have exactly one `run_assessments` row. If you
-  find one without, backfill it (`npm run backfill-assessments`) rather
-  than teaching readers to tolerate a missing assessment.
-- `exercise_progress` is a rebuildable snapshot: it must always equal
-  replaying `run_assessments` in `run_id` order from `initial_tempo_bpm`.
-  `npm run rebuild-progress` does this.
-- Migrations are tracked in `schema_migrations`
-  (`src/server/db/apply-migrations.ts`) and apply exactly once each. Don't
-  assume `CREATE TABLE IF NOT EXISTS`-style idempotency is enough once a
-  migration does something non-idempotent (`ALTER TABLE ... DROP COLUMN`,
-  a table rebuild).
-- Fingering data for all twelve scales is resolved with provenance in
-  `docs/major-minor-fingering.md` (right-hand major table — the sole
-  reference). One-octave fingerings are the first seven fingers ending on
-  the higher finger of any "X/Y" choice; descending is the exact reverse of
-  ascending. Do not invent fingerings or provenance; change `catalog/v1.ts`
-  only from that reference.
-
-## Known gaps / TODO
-
-**Full catalog: done.** All twelve scales (38 exercises: 24 one-octave plus
-14 two-octave for the seven sourced scales) are seeded via
-`progression_groups`/`scales` tables (migrations `0006`/`0008`) and validated by
-`src/domain/catalog` before insertion (`catalog/v1.ts`).
-`exercises.direction` accepts `'descending'` (migration `0004`),
-`exercise_steps.semitone_offset` accepts the full `-12..12` range a
-descending exercise needs (migration `0005`), and `scoreRun` handles
-descending correctly (see the descending test in `tests/scoring.test.ts`).
-Descending fingering for every scale is the reverse of its ascending
-fingering, derived mechanically rather than sourced separately.
-
-**Minor cleanups**, none urgent:
-  - `createRun` (`src/server/runs/create-run.ts`) reads the exercise/
-    progress rows and calls `scoreRun` *before* opening the
-    `sqlite.transaction(...)` block, not inside it. `better-sqlite3` is
-    synchronous so there's no real race, but it doesn't match
-    ARCHITECTURE.md's "loads the exercise and progress rows... inside" one
-    transaction. Moving the reads inside the transaction callback would
-    match the doc exactly, at the cost of a slightly larger callback.
-  - Legacy-assessment backfill (`src/server/db/backfill-assessments.ts`)
-    now runs on every server startup, and each backfilled run is its own
-    transaction (not one transaction for the whole batch). This is safe
-    but changes "startup runs migrations only" into "startup runs
-    migrations, then repairs any legacy data" — worth a line in
-    `ARCHITECTURE.md`'s deployment section if that doc is revisited.
-
-**Scoring test coverage: done.** `scoreRun` (`src/domain/scoring.ts`)
-is now covered for wrong-pitch note-ons before the tonic anchors, a
-wrong-octave note after anchoring, resynchronization (a later expected
-pitch skips ahead, marking the skipped steps `missed`), extra note-ons
-after the final step is already matched, per-step fault attribution (`faults[]`
-entries and per-step `hardFaultCount` summing to the aggregate),
-equal-offset tie-breaking by `sequenceNumber`, timing deviation boundary
-values, the timing exclusion window (and its restart on a second hard
-fault), overlap (note-off before/at/after the next note-on, and a missing
-note-off), velocity having no effect, and `summary.passed` against
-`maxTimingFaultsPerRun`, and best-fit timing residuals — see
-`tests/scoring.test.ts`.
-
-Client-side velocity-zero → `note_off` normalization
-(`src/client/midi/capture.ts`) is covered: see
-`tests/client-capture.test.ts` (fake MIDI messages, fake monotonic clock,
-normalization, sequence ordering, negative count-in offsets, and the final
-`POST /api/runs` request shape).
+  deterministic — no Fastify, Drizzle, filesystem, or clock.
+- Every persisted run has exactly one `run_assessments` row. Backfill a
+  missing one (`npm run backfill-assessments`); never teach readers to
+  tolerate its absence.
+- `exercise_progress` is rebuildable: it must equal replaying
+  `run_assessments` in `run_id` order from `initial_tempo_bpm`
+  (`npm run rebuild-progress`).
+- Migrations apply exactly once via `schema_migrations`
+  (`src/server/db/apply-migrations.ts`). `IF NOT EXISTS` idempotency is not
+  enough once a migration drops a column or rebuilds a table.
+- Fingerings come only from `docs/major-minor-fingering.md` (right-hand major
+  table, the sole reference). One-octave fingerings are the first seven
+  fingers, ending on the higher finger of any "X/Y" choice; descending is the
+  exact reverse of ascending. Never invent fingerings or provenance; change
+  `catalog/v1.ts` only from that reference.

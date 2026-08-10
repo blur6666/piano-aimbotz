@@ -1,12 +1,8 @@
 # Piano Scale Trainer
 
-```bash
-npm install
-cp .env.example .env
-npm run migrate
-npm run seed
-npm run dev          # backend, :3000
-npm run dev:client   # frontend, :5173 (separate terminal)
-```
+A one-user practice tool: play scales on a MIDI keyboard against a metronome,
+get scored, progress in tempo.
 
-See `AGENTS.md` for full setup, checks, and CI details.
+Setup, how to run it, checks, and invariants live in [AGENTS.md](AGENTS.md).
+Product intent is in [SPEC.md](SPEC.md); implementation decisions are in
+[ARCHITECTURE.md](ARCHITECTURE.md).
