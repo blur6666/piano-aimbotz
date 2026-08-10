@@ -273,6 +273,27 @@ Every progression-policy version found in stored assessments must retain a regis
 
 The progression group order controls recommended presentation, not database locking. V1 has no defensible definition of a mastered tempo, so there is no unlock table and no hidden rule that prevents choosing another exercise.
 
+### `trail` (view)
+
+`trail` is a view, not a table. It owns no rows and stores no ordering of its own; it reads `progression_groups` and `scales` and states the practice path they already determine.
+
+| Column | Source | Meaning |
+| --- | --- | --- |
+| `world_number` | `progression_groups.progression_order` | Which world, in order |
+| `world_slug`, `world_name` | `progression_groups` | Identity of the world |
+| `step_number` | `scales.position_in_group` | Position along that world's path |
+| `steps_in_world` | count over the world | How long the path is |
+| `is_final_step` | `step_number = steps_in_world` | Whether completing this step completes the world |
+| `scale_id`, `node_slug`, `node_name` | `scales` | The scale practised at this step |
+
+The view exists for legibility. The path was always fully determined by the two ordinal columns, but reading it required knowing which join and which `ORDER BY` to write, so "what is the path through world 1?" lived in the query author rather than in the database. `SELECT * FROM trail` now answers it directly.
+
+`is_final_step` and `steps_in_world` are deliberate: the last step of a world announces itself, so completion is read off a row rather than inferred from a missing successor. No consumer follows pointers to discover it has arrived.
+
+A view rather than a table, and no `next`/`previous` columns anywhere: a second stored copy of the ordering could disagree with `scales`, and an edge table of from/to pairs could form cycles, forks, or orphans while every individual row still satisfied its constraints. `UNIQUE (progression_group_id, position_in_group)` makes those states unrepresentable, and deriving the path from it keeps that guarantee. Ordinals cost a renumbering when a scale is inserted mid-path; that happens in `catalog/v1.ts` at seed time, never at runtime. Should a trail step ever need an attribute no scale carries, that is when this becomes a table — justified by the new column, not by wanting the trail to feel tangible.
+
+The view is structural only. What *completing* a step demands of the player is a placeholder constant in `SPEC.md`, and belongs in configuration alongside the tolerances; it must not be encoded here. The player's position along a trail is likewise derived from `exercise_progress`, not stored, for the same reason there is no unlock table.
+
 ### Database-enforced rules
 
 SQLite enforces:
