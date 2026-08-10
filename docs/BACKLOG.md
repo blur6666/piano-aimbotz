@@ -1,14 +1,5 @@
 # BACKLOG.md
 
-## 🏃‍♂️ Active Sprint (Agent Actionable)
-
-- **[TODO]** When the user has the browser in **landscape in fullscreen or maximized mode**, we should consider this viewport as "fullscreen landscape" and then use as much horizontal space as possible. 
-  - The keyboard rendered should be 5 octaves + 1 key long = 61 keys. Which is the size of my midi keyboard. The central C is C4 = middle C. 
-  - All scales should start as close from middle C as possible when in fullscreen landscape, toi the right or to the left of it, whichever is closest.. 
-  - Note that if the user has the tab open in the browser landscape and its not actually fullscreen, it still counts. 
-  - BTW, don restrict the page's width to a thin strip as its done with width limited pages that scroll down only. Thats not the case, so use horizontal space.
-
-
 ## ❓ Clarification Needed (Human to define before agent execution)
 
 - **[CLARIFICATION] Extra-note debounce**
