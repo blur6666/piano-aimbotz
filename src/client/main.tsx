@@ -23,7 +23,7 @@ import {
 import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
 import { Keyboard } from './practice/Keyboard.js'
-import { resolveScaleKeys } from './practice/noteNames.js'
+import { keyboardOctaveCount, resolveScaleKeys } from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
   if (deviationUs === null) return '—'
@@ -97,6 +97,9 @@ function App() {
 
   const exercise =
     exercises.find((candidate) => candidate.id === selectedExerciseId) ?? null
+  const keyboardOctaves = exercise
+    ? keyboardOctaveCount(exercise.octaves)
+    : null
   const visibleExercises = exercises.filter(
     (candidate) =>
       VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
@@ -478,16 +481,18 @@ function App() {
             finalSteps={finalSteps}
           />
         )}
-        {exercise && (!running || showKeyboardDuringTest) && (
-          <Keyboard
-            scaleKeys={resolveScaleKeys(
-              exercise.steps,
-              exercise.direction,
-              exercise.octaves
-            )}
-            octaves={exercise.octaves}
-          />
-        )}
+        {exercise &&
+          keyboardOctaves !== null &&
+          (!running || showKeyboardDuringTest) && (
+            <Keyboard
+              scaleKeys={resolveScaleKeys(
+                exercise.steps,
+                exercise.direction,
+                keyboardOctaves
+              )}
+              octaves={keyboardOctaves}
+            />
+          )}
         {exercise && outcome && !running && (
           <RunResult
             exerciseSteps={exercise.steps}

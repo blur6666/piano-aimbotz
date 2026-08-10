@@ -79,7 +79,8 @@ describe('GET /api/exercises', () => {
       'descending 2-octave'
     ])
 
-    // Every exercise: starts at the configured seed tempo, has 8 steps.
+    // Every exercise starts at the configured seed tempo and has the
+    // expected number of steps for its octave count.
     for (const group of body.groups)
       for (const scale of group.scales)
         for (const exercise of scale.exercises) {
@@ -88,8 +89,9 @@ describe('GET /api/exercises', () => {
           expect(exercise.steps).toHaveLength(exercise.octaves * 7 + 1)
         }
 
-    // Spot-check the resolved A-flat fingering conflict (TSV value, see
-    // catalog/README.md) made it through seed -> route -> response intact.
+    // Spot-check the resolved A-flat fingering from
+    // docs/major-minor-fingering.md made it through seed -> route ->
+    // response intact.
     const group3 = body.groups[2]
     const aFlat = group3.scales.find(
       (scale: { slug: string }) => scale.slug === 'a-flat-major'
@@ -102,6 +104,20 @@ describe('GET /api/exercises', () => {
         (step: { fingerNumber: number }) => step.fingerNumber
       )
     ).toEqual([3, 4, 1, 2, 3, 1, 2, 3])
+
+    // E-flat starts on finger 3 per the same reference (the one scale whose
+    // fingering the reference changed).
+    const eFlat = group3.scales.find(
+      (scale: { slug: string }) => scale.slug === 'e-flat-major'
+    )
+    const eFlatAscending = eFlat.exercises.find(
+      (exercise: { direction: string }) => exercise.direction === 'ascending'
+    )
+    expect(
+      eFlatAscending.steps.map(
+        (step: { fingerNumber: number }) => step.fingerNumber
+      )
+    ).toEqual([3, 1, 2, 3, 4, 1, 2, 3])
 
     await app.close()
     sqlite.close()

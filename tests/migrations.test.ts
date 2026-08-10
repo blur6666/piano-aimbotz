@@ -310,6 +310,78 @@ describe('applyMigrations', () => {
       mean_absolute_timing_deviation_us: 0,
       timing_start_offset_us: null
     })
+
+    sqlite.close()
+  })
+
+  it('migration 0010 corrects the E-flat fingering cells and leaves everything else untouched', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+
+    const priorFiles = MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf('0010_e_flat_fingering_correction.sql')
+    )
+    for (const filename of priorFiles) sqlite.exec(readMigration(filename))
+
+    // Seed-like fixture replicating the pre-correction E-flat state: the
+    // ascending fingering started on 2 ([2,1,2,3,4,1,2,3]) and descending
+    // (its reverse) ended on 2 ([3,2,1,4,3,2,1,2]).
+    const eFlatScaleId = (
+      sqlite
+        .prepare(
+          "INSERT INTO scales (progression_group_id, slug, display_name, tonic_pitch_class, position_in_group) VALUES (1, 'e-flat-major', 'E-flat major', 3, 2) RETURNING id"
+        )
+        .get() as { id: number }
+    ).id
+    const insertExercise = sqlite.prepare(
+      'INSERT INTO exercises (scale_id, direction) VALUES (?, ?) RETURNING id'
+    )
+    const ascendingId = (
+      insertExercise.get(eFlatScaleId, 'ascending') as { id: number }
+    ).id
+    const descendingId = (
+      insertExercise.get(eFlatScaleId, 'descending') as { id: number }
+    ).id
+
+    const oldAscending = [2, 1, 2, 3, 4, 1, 2, 3]
+    const oldDescending = [3, 2, 1, 4, 3, 2, 1, 2]
+    const insertStep = sqlite.prepare(
+      'INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (?, ?, ?, ?, ?)'
+    )
+    oldAscending.forEach((finger, stepIndex) =>
+      insertStep.run(
+        ascendingId,
+        stepIndex,
+        'X',
+        stepIndex === 0 ? 0 : stepIndex,
+        finger
+      )
+    )
+    oldDescending.forEach((finger, stepIndex) =>
+      insertStep.run(descendingId, stepIndex, 'X', -stepIndex, finger)
+    )
+    // A control row from an unrelated exercise that must not change.
+    const cMajorScaleId = sqlite
+      .prepare('SELECT id FROM scales WHERE slug = ?')
+      .get('c-major') as { id: number }
+    const cMajorExerciseId = (
+      insertExercise.get(cMajorScaleId.id, 'ascending') as { id: number }
+    ).id
+    insertStep.run(cMajorExerciseId, 0, 'C', 0, 1)
+
+    sqlite.exec(readMigration('0010_e_flat_fingering_correction.sql'))
+
+    const fingeringOf = (exerciseId: number): number[] =>
+      sqlite
+        .prepare(
+          'SELECT finger_number FROM exercise_steps WHERE exercise_id = ? ORDER BY step_index'
+        )
+        .all(exerciseId)
+        .map((row) => (row as { finger_number: number }).finger_number)
+    expect(fingeringOf(ascendingId)).toEqual([3, 1, 2, 3, 4, 1, 2, 3])
+    expect(fingeringOf(descendingId)).toEqual([3, 2, 1, 4, 3, 2, 1, 3])
+    expect(fingeringOf(cMajorExerciseId)).toEqual([1])
     sqlite.close()
   })
 

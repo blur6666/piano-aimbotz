@@ -47,8 +47,8 @@ function keyCenterPercent(
 
 export type KeyboardProps = {
   scaleKeys: readonly ScaleKey[]
-  // Span of the drawn keyboard, from the selected exercise's `octaves` (1 or
-  // 2), so a one-octave exercise renders one octave instead of a wide three.
+  // Span of the drawn C-to-C keyboard: 2 octaves for a one-octave exercise,
+  // and 3 for a two-octave exercise, so both tonic endpoints fit.
   octaves: number
 }
 

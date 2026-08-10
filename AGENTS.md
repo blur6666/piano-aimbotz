@@ -59,10 +59,11 @@ the database schema. A few that are easy to violate by accident:
   migration does something non-idempotent (`ALTER TABLE ... DROP COLUMN`,
   a table rebuild).
 - Fingering data for all twelve scales is resolved with provenance in
-  `catalog/v1.ts` and `catalog/README.md` (pianoscales.org, cross-checked
-  against a second independent source). Do not invent black-key fingerings
-  or their provenance; extend `catalog/v1.ts` only from a sourced
-  reference, following the same pattern.
+  `docs/major-minor-fingering.md` (right-hand major table — the sole
+  reference). One-octave fingerings are the first seven fingers ending on
+  the higher finger of any "X/Y" choice; descending is the exact reverse of
+  ascending. Do not invent fingerings or provenance; change `catalog/v1.ts`
+  only from that reference.
 
 ## Known gaps / TODO
 

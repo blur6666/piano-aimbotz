@@ -77,7 +77,6 @@ The following remain configuration, with no value selected by this document:
 - maximum timing and overlap faults allowed for a clean run
 - number of matched notes excluded from timing after a hard fault
 - failed-run behavior: reset the streak or step the tempo down
-- fingering dataset path, source name, source URL, and dataset version
 
 The rule requiring three consecutive clean runs is decided in `SPEC.md`; it is not an unresolved threshold. The actual soft-fault tolerances and gates are unresolved.
 
@@ -94,7 +93,7 @@ When `step_down` is selected, configuration validation requires the minimum temp
 
 Scoring and progression algorithm versions are code constants, not operator configuration. Changing behavior requires changing the version.
 
-The latest project decision explicitly keeps the fingering source unresolved, despite the conflicting earlier source-of-record sentence in `SPEC.md`. The fingerings already stated explicitly for Group 1 and F, plus the stated starting fingers for B-flat, E-flat, and D-flat, remain domain constraints. For each one-octave exercise, descending fingering is the ascending sequence in reverse. Agents may not invent the remaining black-key fingerings or their provenance. The application cannot seed a runnable catalog until the complete dataset and its provenance have been supplied.
+The fingering source of record is `docs/major-minor-fingering.md` (right-hand major table, two octaves). One-octave fingerings are derived by taking the first seven fingers and ending on the higher finger of any "X/Y" choice; for each one-octave exercise, descending fingering is the ascending sequence in reverse. The catalog is seeded and runnable. Any future fingering change must come from that reference, not be invented by an agent.
 
 Velocity is captured but ignored by v1 scoring. Extra-note debounce is not implemented in v1; every duplicate or adjacent note remains a hard fault until the deferred decision is revisited.
 
@@ -701,8 +700,9 @@ This list returns stored original aggregates only. `GET /api/runs/:id` is the ex
   vitest.config.ts
   migrations/
   catalog/
-    catalog.schema.json
-    README.md
+    v1.ts
+  docs/
+    major-minor-fingering.md
   src/
     shared/
       contracts/
