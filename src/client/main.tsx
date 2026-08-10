@@ -685,8 +685,8 @@ function App() {
         {practiceMode && (
           <p className="dev-tools-note">
             Practice mode: runs at the tempo above without saving progress or
-            history. The server's tempo lock (ARCHITECTURE.md) is never bypassed
-            -- practice runs simply aren't submitted.
+            history. The server's tempo lock (docs/ARCHITECTURE.md) is never
+            bypassed -- practice runs simply aren't submitted.
           </p>
         )}
       </section>

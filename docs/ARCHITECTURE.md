@@ -93,7 +93,7 @@ When `step_down` is selected, configuration validation requires the minimum temp
 
 Scoring and progression algorithm versions are code constants, not operator configuration. Changing behavior requires changing the version.
 
-The fingering source of record is `docs/major-minor-fingering.md` (right-hand major table, two octaves). One-octave fingerings are derived by taking the first seven fingers and ending on the higher finger of any "X/Y" choice; for each one-octave exercise, descending fingering is the ascending sequence in reverse. The catalog is seeded and runnable. Any future fingering change must come from that reference, not be invented by an agent.
+The fingering source of record is `docs/SCALES_FINGERING_REFERENCE.md` (right-hand major table, two octaves). One-octave fingerings are derived by taking the first seven fingers and ending on the higher finger of any "X/Y" choice; for each one-octave exercise, descending fingering is the ascending sequence in reverse. The catalog is seeded and runnable. Any future fingering change must come from that reference, not be invented by an agent.
 
 Velocity is captured but ignored by v1 scoring. Extra-note debounce is not implemented in v1; every duplicate or adjacent note remains a hard fault until the deferred decision is revisited.
 
@@ -690,8 +690,6 @@ This list returns stored original aggregates only. `GET /api/runs/:id` is the ex
 
 ```text
 /
-  ARCHITECTURE.md
-  SPEC.md
   .node-version
   package.json
   package-lock.json
@@ -702,7 +700,9 @@ This list returns stored original aggregates only. `GET /api/runs/:id` is the ex
   catalog/
     v1.ts
   docs/
-    major-minor-fingering.md
+    ARCHITECTURE.md
+    SPEC.md
+    SCALES_FINGERING_REFERENCE.md
   src/
     shared/
       contracts/

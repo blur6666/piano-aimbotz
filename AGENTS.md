@@ -1,6 +1,6 @@
 # Agent and contributor guide
 
-`SPEC.md` (product intent) and `ARCHITECTURE.md` (decisions, invariants) are
+`docs/SPEC.md` (product intent) and `docs/ARCHITECTURE.md` (decisions, invariants) are
 the sources of truth — read them before changing behavior. This file is
 operational only. Open work lives in `docs/BACKLOG.md`.
 
@@ -69,7 +69,7 @@ for a repo-wide `prettier --write` — it buries the cause in a whole-file diff.
 
 ## Invariants
 
-Full list: `ARCHITECTURE.md` → "Invariants that must not be rediscovered".
+Full list: `docs/ARCHITECTURE.md` → "Invariants that must not be rediscovered".
 Read it before touching scoring, progression, or the schema. Easiest to
 violate by accident:
 
@@ -86,7 +86,7 @@ violate by accident:
 - Migrations apply exactly once via `schema_migrations`
   (`src/server/db/apply-migrations.ts`). `IF NOT EXISTS` idempotency is not
   enough once a migration drops a column or rebuilds a table.
-- Fingerings come only from `docs/major-minor-fingering.md` (right-hand major
+- Fingerings come only from `docs/SCALES_FINGERING_REFERENCE.md` (right-hand major
   table, the sole reference). One-octave fingerings are the first seven
   fingers, ending on the higher finger of any "X/Y" choice; descending is the
   exact reverse of ascending. Never invent fingerings or provenance; change

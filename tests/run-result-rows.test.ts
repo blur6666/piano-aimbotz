@@ -64,7 +64,7 @@ describe('buildRunResultRows', () => {
   })
 
   it('marks a step excluded by the recovery window rather than counting it', () => {
-    // SPEC.md: the note after a stumble is late for reasons that have
+    // docs/SPEC.md: the note after a stumble is late for reasons that have
     // nothing to do with timing, so it must not read as a timing result.
     const rows = rowsFor([
       step({ stepIndex: 0, timingDeviationUs: 180_000, timingExcluded: true })

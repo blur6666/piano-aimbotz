@@ -8,7 +8,7 @@ import { rebuildExerciseProgress } from '../progress/rebuild.js'
 
 // Runs captured before run_assessments existed (or before this column set
 // existed) have no matching assessment row. readRun() and listRuns() both
-// assume every run has exactly one, per ARCHITECTURE.md's invariant. This
+// assume every run has exactly one, per docs/ARCHITECTURE.md's invariant. This
 // restores that invariant for pre-existing data by scoring those runs with
 // the current algorithm, rather than teaching every reader to tolerate a
 // missing assessment. The distinct algorithm version makes clear these were

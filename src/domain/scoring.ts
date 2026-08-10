@@ -3,7 +3,7 @@ export type ScoringConfig = {
   // expected notes, rather than an absolute duration. Two reasons it is the
   // note interval and not the beat:
   //
-  //  - Tempo is the progression axis (SPEC.md), so the gate has to tighten
+  //  - Tempo is the progression axis (docs/SPEC.md), so the gate has to tighten
   //    as tempo climbs, or "clean at 120" would be strictly easier than
   //    "clean at 60" and climbing would mean nothing.
   //  - At two notes per beat the note interval is half the beat. Keying off
@@ -337,7 +337,7 @@ export function scoreRun(input: ScoreRunInput): Assessment {
           : Math.round(timingDeviationTotal / timingSampleCount),
       timingStartOffsetUs,
       // Overlap is measured and reported per step but deliberately does not
-      // gate: SPEC.md wants legato bleed captured separately, and no
+      // gate: docs/SPEC.md wants legato bleed captured separately, and no
       // defensible tolerance exists yet. Gating on it with the old zero
       // tolerance made every run unpassable, which stalled progression
       // entirely. Revisit once real sessions exist.

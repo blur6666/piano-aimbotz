@@ -1,4 +1,4 @@
--- Introduces progression_groups and scales per ARCHITECTURE.md's ERD, and
+-- Introduces progression_groups and scales per docs/ARCHITECTURE.md's ERD, and
 -- moves scale identity (slug, display name, tonic pitch class) off
 -- exercises onto scales. exercises becomes (id, scale_id, direction) only.
 -- This is the rebuild the full 12-scale/24-exercise catalog needs

@@ -90,7 +90,7 @@ describe('GET /api/exercises', () => {
         }
 
     // Spot-check the resolved A-flat fingering from
-    // docs/major-minor-fingering.md made it through seed -> route ->
+    // docs/SCALES_FINGERING_REFERENCE.md made it through seed -> route ->
     // response intact.
     const group3 = body.groups[2]
     const aFlat = group3.scales.find(

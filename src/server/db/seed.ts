@@ -11,7 +11,7 @@ import {
 } from '../../domain/catalog/index.js'
 
 // The seed command inserts missing data and verifies matching existing
-// data; it does not silently update definitions (ARCHITECTURE.md).
+// data; it does not silently update definitions (docs/ARCHITECTURE.md).
 // Re-running a seed must never reinterpret historical runs, so any
 // mismatch between what's already stored and the seed source is a hard
 // error rather than an in-place rewrite.

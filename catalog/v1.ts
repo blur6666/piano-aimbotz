@@ -1,14 +1,14 @@
 // Versioned catalog data: 3 progression groups, 12 physical major scales,
 // 38 exercises -- ascending + descending at one octave (8 steps) for every
 // scale, plus two octaves (15 steps) for the seven scales with sourced
-// two-octave fingering (Group 1 and F). Right hand only, per SPEC.md.
+// two-octave fingering (Group 1 and F). Right hand only, per docs/SPEC.md.
 //
 // Practice order minimises how many physical patterns must be memorised:
 // Group 1 (C, G, D, A, E, B) shares one right-hand shape; Group 2 is F,
 // the one white-key exception; Group 3's five black-key scales each have
 // their own shape but sit most comfortably under the hand.
 //
-// Fingering source of record: docs/major-minor-fingering.md, Major Scale
+// Fingering source of record: docs/SCALES_FINGERING_REFERENCE.md, Major Scale
 // (RH) table. Its charts are two octaves; the one-octave fingering is the
 // first seven fingers, ending on the higher finger of any "X/Y" choice.
 // Two-octave fingering repeats the seven-finger cycle and closes on the

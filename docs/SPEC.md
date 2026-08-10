@@ -75,7 +75,7 @@
 
 Ordered by **fingering group**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, in what order. C major is the first scale a player sees.
 
-**Fingering source of record: `docs/major-minor-fingering.md`** (right-hand major table). Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice. A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
+**Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table). Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice. A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
 
 **Group 1 — shared fingering: C, G, D, A, E, B.** Six scales, one right-hand pattern: **1-2-3-1-2-3-4-5**. Learn the shape once.
 
@@ -93,7 +93,7 @@ B is a left-hand exception, not a right-hand one — so for a right-hand v1 it b
 
 **Group 3 — black-key scales: B♭, E♭, A♭, D♭, G♭.** Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
 
-**But these do not share a pattern.** Each has its own right-hand fingering, resolved with provenance in `docs/major-minor-fingering.md`: B♭, D♭, and G♭ all start on finger 2; E♭ and A♭ start on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
+**But these do not share a pattern.** Each has its own right-hand fingering, resolved with provenance in `docs/SCALES_FINGERING_REFERENCE.md`: B♭, D♭, and G♭ all start on finger 2; E♭ and A♭ start on finger 3. Five separate memorisations, made easier by hand position rather than by a common shape.
 
 Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". The progression logic should know that the boundary between them changes what advancement means.
 
