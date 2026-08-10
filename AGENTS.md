@@ -25,8 +25,13 @@ npm run dev:client   # Vite dev server + HMR, :5173 — watcher, does not exit
 ```
 
 In dev the app is **only at `http://localhost:5173`**. `:3000` serves the API
-and nothing else — no SPA — so it renders blank. Vite proxies `/api` from
-`:5173` to `:3000`, which is why both must be up.
+and nothing else — no SPA — so `GET :3000/` is a bare `404 Not Found`. Vite
+proxies `/api` from `:5173` to `:3000`, which is why both must be up.
+
+The backend must be on 3000. `vite.config.ts` hardcodes that proxy target
+while the server honours `PORT`, so moving the backend leaves `:5173` loading
+fine with every `/api` call broken. If 3000 is occupied, free it — do not
+reassign the port.
 
 OpenCode's Playwright must target `:5173`, and only after both processes are
 running — OpenCode starts them itself, with the two commands above,
