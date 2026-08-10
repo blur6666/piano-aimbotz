@@ -192,24 +192,36 @@ describe('catalogV1 two-octave exercises', () => {
     ])
   })
 
-  it('contains exactly 38 exercises, with only the seven two-octave scales offering a variant', () => {
+  // The reference chart is two octaves for every scale, so every scale gets a
+  // two-octave variant. E flat stands in for the four black-key scales the
+  // plain cycle repeat reproduces exactly; B flat below is the one it cannot.
+  it('builds E-flat major two-octave ascending by repeating its cycle', () => {
+    const exercise = twoOctaveAscending('e-flat-major')
+    expect(exercise.steps.map((step) => step[2])).toEqual([
+      3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3
+    ])
+  })
+
+  it('builds B-flat major two-octave ascending starting the second octave on the closing finger', () => {
+    const exercise = twoOctaveAscending('b-flat-major')
+    expect(exercise.steps.map((step) => step[2])).toEqual([
+      2, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4
+    ])
+    // The trap this guards: repeating the first seven fingers would put 2 at
+    // index 7, which is not what the reference chart says.
+    expect(exercise.steps[7][2]).toBe(4)
+  })
+
+  it('contains exactly 48 exercises, every scale offering both octave counts', () => {
     const allExercises = catalogV1.groups.flatMap((group) =>
       group.scales.flatMap((scale) => scale.exercises)
     )
-    expect(allExercises).toHaveLength(38)
+    expect(allExercises).toHaveLength(48)
 
-    const blackKeySlugs = [
-      'b-flat-major',
-      'e-flat-major',
-      'a-flat-major',
-      'd-flat-major',
-      'f-sharp-g-flat-major'
-    ]
     for (const scale of catalogV1.groups.flatMap((group) => group.scales)) {
-      const hasTwoOctave = scale.exercises.some(
-        (exercise) => exercise.octaves === 2
-      )
-      expect(hasTwoOctave).toBe(!blackKeySlugs.includes(scale.slug))
+      expect(
+        scale.exercises.map((exercise) => exercise.octaves).sort()
+      ).toEqual([1, 1, 2, 2])
     }
   })
 })

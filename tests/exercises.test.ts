@@ -22,7 +22,7 @@ const testConfig: AppConfig = {
 }
 
 describe('GET /api/exercises', () => {
-  it('returns the full 3-group/12-scale/38-exercise catalog in progression order', async () => {
+  it('returns the full 3-group/12-scale/48-exercise catalog in progression order', async () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
     seedCatalog(sqlite, testConfig)
@@ -60,7 +60,7 @@ describe('GET /api/exercises', () => {
         ),
       0
     )
-    expect(totalExercises).toBe(38)
+    expect(totalExercises).toBe(48)
 
     expect(body.groups[0].scales[0]).toMatchObject({
       slug: 'c-major',

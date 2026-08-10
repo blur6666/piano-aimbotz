@@ -1,7 +1,6 @@
 // Versioned catalog data: 3 progression groups, 12 physical major scales,
-// 38 exercises -- ascending + descending at one octave (8 steps) for every
-// scale, plus two octaves (15 steps) for the seven scales with sourced
-// two-octave fingering (Group 1 and F). Right hand only, per docs/SPEC.md.
+// 48 exercises -- ascending + descending at one octave (8 steps) and two
+// octaves (15 steps) for every scale. Right hand only, per docs/SPEC.md.
 //
 // Practice order minimises how many physical patterns must be memorised:
 // Group 1 (C, G, D, A, E, B) shares one right-hand shape; Group 2 is F,
@@ -9,10 +8,12 @@
 // their own shape but sit most comfortably under the hand.
 //
 // Fingering source of record: docs/SCALES_FINGERING_REFERENCE.md, Major Scale
-// (RH) table. Its charts are two octaves; the one-octave fingering is the
-// first seven fingers, ending on the higher finger of any "X/Y" choice.
-// Two-octave fingering repeats the seven-finger cycle and closes on the
-// original ending finger. Descending is the exact reverse of ascending.
+// (RH) table. Its charts are two octaves for all twelve scales; the one-octave
+// fingering is the first seven fingers, ending on the higher finger of any
+// "X/Y" choice. Two-octave fingering repeats the seven-finger cycle and closes
+// on the original ending finger -- which reproduces the chart exactly for
+// eleven of the twelve. B flat is the sole exception and is stored verbatim
+// below. Descending is the exact reverse of ascending.
 
 import type {
   Catalog,
@@ -38,6 +39,9 @@ const TWO_OCTAVE_ASCENDING_OFFSETS = [
 // descending derivation below -- mechanically derived, no new data:
 //   Group 1 [1,2,3,1,2,3,4,5] -> 1 2 3 1 2 3 4 | 1 2 3 1 2 3 4 | 5
 //   F major [1,2,3,4,1,2,3,4] -> 1 2 3 4 1 2 3 | 1 2 3 4 1 2 3 | 4
+// Verified against the reference chart for eleven of the twelve scales. The
+// twelfth, B flat, needs its own row (see twoOctaveFingering) and does not
+// come through here.
 function repeatCycle<T>(values: readonly T[]): T[] {
   const cycle = values.slice(0, 7)
   return [...cycle, ...cycle, values[7]]
@@ -49,13 +53,15 @@ type ScaleDefinition = {
   tonicPitchClass: number
   group: (typeof GROUPS)[number]['slug']
   positionInGroup: number
-  // True only for the scales whose two-octave fingering the reference
-  // documents (Group 1 plus F). The five black-key scales stay one octave:
-  // their patterns do not start on the thumb, so the cycle repeat is not
-  // valid for them.
-  twoOctave?: boolean
   notes: readonly string[]
   fingering: readonly number[]
+  // Set only where the reference's two-octave row is not what repeatCycle
+  // produces. B flat is the only such scale: its second octave starts on 4 --
+  // the finger that closes the first octave -- instead of restarting on 2, so
+  // the chart reads as a pickup finger followed by two clean seven-cycles.
+  // Copied from the reference, not derived; every other scale must stay
+  // derived so there is nothing extra to keep in sync.
+  twoOctaveFingering?: readonly number[]
 }
 
 const GROUPS = [
@@ -75,7 +81,6 @@ const SCALES = [
     tonicPitchClass: 0,
     group: 'group-1',
     positionInGroup: 1,
-    twoOctave: true,
     notes: ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -85,7 +90,6 @@ const SCALES = [
     tonicPitchClass: 7,
     group: 'group-1',
     positionInGroup: 2,
-    twoOctave: true,
     notes: ['G', 'A', 'B', 'C', 'D', 'E', 'F#', 'G'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -95,7 +99,6 @@ const SCALES = [
     tonicPitchClass: 2,
     group: 'group-1',
     positionInGroup: 3,
-    twoOctave: true,
     notes: ['D', 'E', 'F#', 'G', 'A', 'B', 'C#', 'D'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -105,7 +108,6 @@ const SCALES = [
     tonicPitchClass: 9,
     group: 'group-1',
     positionInGroup: 4,
-    twoOctave: true,
     notes: ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#', 'A'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -115,7 +117,6 @@ const SCALES = [
     tonicPitchClass: 4,
     group: 'group-1',
     positionInGroup: 5,
-    twoOctave: true,
     notes: ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#', 'E'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -125,7 +126,6 @@ const SCALES = [
     tonicPitchClass: 11,
     group: 'group-1',
     positionInGroup: 6,
-    twoOctave: true,
     notes: ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#', 'B'],
     fingering: [1, 2, 3, 1, 2, 3, 4, 5]
   },
@@ -135,7 +135,6 @@ const SCALES = [
     tonicPitchClass: 5,
     group: 'group-2',
     positionInGroup: 1,
-    twoOctave: true,
     notes: ['F', 'G', 'A', 'Bb', 'C', 'D', 'E', 'F'],
     fingering: [1, 2, 3, 4, 1, 2, 3, 4]
   },
@@ -146,7 +145,8 @@ const SCALES = [
     group: 'group-3',
     positionInGroup: 1,
     notes: ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'],
-    fingering: [2, 1, 2, 3, 1, 2, 3, 4]
+    fingering: [2, 1, 2, 3, 1, 2, 3, 4],
+    twoOctaveFingering: [2, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 1, 2, 3, 4]
   },
   {
     slug: 'e-flat-major',
@@ -193,10 +193,11 @@ function buildOctaveExercises(
   def: ScaleDefinition,
   octaves: number
 ): CatalogExercise[] {
-  const notes =
-    octaves === 1 ? [...def.notes] : repeatCycle(def.notes)
+  const notes = octaves === 1 ? [...def.notes] : repeatCycle(def.notes)
   const fingering =
-    octaves === 1 ? [...def.fingering] : repeatCycle(def.fingering)
+    octaves === 1
+      ? [...def.fingering]
+      : [...(def.twoOctaveFingering ?? repeatCycle(def.fingering))]
   const offsets =
     octaves === 1 ? ASCENDING_OFFSETS : TWO_OCTAVE_ASCENDING_OFFSETS
   const span = 12 * octaves
@@ -224,9 +225,7 @@ function buildOctaveExercises(
 }
 
 function buildExercises(def: ScaleDefinition): readonly CatalogExercise[] {
-  const exercises = buildOctaveExercises(def, 1)
-  if (def.twoOctave) exercises.push(...buildOctaveExercises(def, 2))
-  return exercises
+  return [...buildOctaveExercises(def, 1), ...buildOctaveExercises(def, 2)]
 }
 
 function buildGroup(group: (typeof GROUPS)[number]): CatalogGroup {

@@ -73,7 +73,7 @@ Practise the right-hand major scales against a metronome and get a measured verd
 #### Exercise shape and motion
 
 - **Right hand only.** May be revisited later.
-- **One or two octaves only.** Two-octave variants exist only where a two-octave fingering has a real source: Group 1 and F. Black-key two-octave fingerings are still unsourced and are therefore one-octave only (see "Out of scope").
+- **One or two octaves only.** Every scale exists at both counts: the fingering reference charts two octaves for all twelve, so nothing is held back for want of a source.
 - **Ascending and descending motion only.**
   - No arpeggios and no broken patterns.
 - **Ascending and descending are scored separately.**
@@ -82,7 +82,7 @@ Practise the right-hand major scales against a metronome and get a measured verd
 - **Fixed tempo per run.**
   - Tempo that varies *within* a run is wanted later. Free tempo for scored runs, never — see the goal above.
 - **Display both the scale and the fingering** during the run.
-- **Optional auto-repeat:** runs chaining one after another, each separated by a count-in. **Wanted, not built** — it is deliberately absent from the "done when" bar above and does not block v1.
+- **Optional auto-repeat:** runs chain one after another until stopped, separated by one beat of gap and then the usual count-in. Chaining continues whether a run passed or failed — the point is staying in the loop, not being rewarded for a streak.
 - **Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table).
   - Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice.
   - A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
@@ -209,6 +209,4 @@ Direction only. Nothing here is designed, and none of it may be implemented unti
 - **Failed-run behavior and thresholds.** Whether a failed run resets the consecutive-clean-run counter or steps the tempo down, and the actual soft-fault tolerances, timing/overlap tolerances, tempo increment, tempo decrement, and starting tempo. These are tuning parameters, not architecture — see `ARCHITECTURE.md`'s "Configuration and deferred decisions."
 - **Extra-note debounce.** Deferred by decision; will likely need revisiting once there's real data on how aggressive the current all-extras-are-hard-faults rule feels in practice.
 
-**Blocked on sources rather than deferred:**
-
-- **Two-octave black-key fingerings.** Group 1 and F have sourced two-octave fingerings; the Group 3 scales do not. Until a source exists in `docs/SCALES_FINGERING_REFERENCE.md`, those scales stay one-octave. Agents must not invent the missing fingerings.
+**Nothing is currently blocked on missing fingering sources.** `docs/SCALES_FINGERING_REFERENCE.md` charts two octaves for all twelve major scales, and all twelve are seeded at both octave counts. The standing rule is unchanged and applies to anything the reference does *not* cover: agents must take fingerings from it, never invent them.

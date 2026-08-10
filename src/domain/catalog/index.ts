@@ -168,15 +168,15 @@ export function validateCatalog(catalog: Catalog): void {
       `Catalog must cover every tonic pitch class 0..11 exactly once, found [${[...seenTonicPitchClasses].sort((a, b) => a - b).join(', ')}].`
     )
 
-  // Two-octave coverage is deliberately partial (Group 1 plus F). Asserting
-  // the exact count means a half-applied catalog change fails loudly here
-  // rather than surfacing as a missing exercise in the picker.
+  // The reference chart is two octaves for every scale, so coverage is total.
+  // Asserting the exact count means a half-applied catalog change fails loudly
+  // here rather than surfacing as a missing exercise in the picker.
   const twoOctaveScaleCount = allScales.filter((scale) =>
     scale.exercises.some((exercise) => exercise.octaves === 2)
   ).length
-  if (twoOctaveScaleCount !== 7)
+  if (twoOctaveScaleCount !== 12)
     throw new Error(
-      `Catalog must define two-octave exercises for exactly 7 scales (Group 1 plus F), found ${twoOctaveScaleCount}.`
+      `Catalog must define two-octave exercises for all 12 scales, found ${twoOctaveScaleCount}.`
     )
 
   // Second pass: per-scale exercise/step content, once the catalog's own
