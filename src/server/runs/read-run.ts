@@ -9,6 +9,7 @@ type RunRow = {
   exercise_id: number
   performed_at_ms: number
   tempo_bpm: number
+  notes_per_beat: number
 }
 
 type AssessmentRow = {
@@ -22,6 +23,7 @@ type AssessmentRow = {
   timing_sample_count: number
   timing_excluded_count: number
   mean_absolute_timing_deviation_us: number | null
+  timing_start_offset_us: number | null
   passed: number
   assessed_at_ms: number
 }
@@ -52,7 +54,7 @@ export function readRun(
 ) {
   const run = sqlite
     .prepare(
-      'SELECT id, exercise_id, performed_at_ms, tempo_bpm FROM runs WHERE id = ?'
+      'SELECT id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat FROM runs WHERE id = ?'
     )
     .get(runId) as RunRow | undefined
   if (!run) throw new NotFoundError('Run not found.')
@@ -96,6 +98,10 @@ export function readRun(
       }))
     },
     tempoBpm: run.tempo_bpm,
+    // The grid the run was actually played against, not the current
+    // configuration -- re-scoring an old run must not silently rewrite the
+    // beat spacing it was performed on.
+    notesPerBeat: run.notes_per_beat,
     events: events.map((event) => ({
       sequenceNumber: event.sequence_number,
       offsetUs: event.offset_us,
@@ -130,6 +136,7 @@ export function readRun(
         timingExcludedCount: originalAssessment.timing_excluded_count,
         meanAbsoluteTimingDeviationUs:
           originalAssessment.mean_absolute_timing_deviation_us,
+        timingStartOffsetUs: originalAssessment.timing_start_offset_us,
         passed: originalAssessment.passed === 1
       }
     },
@@ -148,6 +155,7 @@ type HistoryRow = {
   timing_sample_count: number
   timing_excluded_count: number
   mean_absolute_timing_deviation_us: number | null
+  timing_start_offset_us: number | null
   passed: number
 }
 
@@ -156,7 +164,7 @@ export function listRuns(sqlite: Database.Database, exerciseId: number) {
     .prepare(
       `SELECT r.id, r.performed_at_ms, r.tempo_bpm,
               a.algorithm_version, a.hard_fault_count, a.timing_fault_count, a.overlap_fault_count,
-              a.timing_sample_count, a.timing_excluded_count, a.mean_absolute_timing_deviation_us, a.passed
+               a.timing_sample_count, a.timing_excluded_count, a.mean_absolute_timing_deviation_us, a.timing_start_offset_us, a.passed
        FROM runs r
        JOIN run_assessments a ON a.run_id = r.id
        WHERE r.exercise_id = ?
@@ -177,6 +185,7 @@ export function listRuns(sqlite: Database.Database, exerciseId: number) {
         timingSampleCount: row.timing_sample_count,
         timingExcludedCount: row.timing_excluded_count,
         meanAbsoluteTimingDeviationUs: row.mean_absolute_timing_deviation_us,
+        timingStartOffsetUs: row.timing_start_offset_us,
         passed: row.passed === 1
       }
     }))

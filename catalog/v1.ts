@@ -1,5 +1,6 @@
 // Versioned catalog data: 3 progression groups, 12 physical major scales,
-// 24 exercises (ascending + descending per scale), 8 steps each. Right
+// 38 exercises: ascending + descending per scale at one octave (8 steps),
+// plus the same at two octaves (15 steps) for Group 1 and F. Right
 // hand only -- v1 scope per SPEC.md.
 //
 // Provenance: primary source is `fingering-reference-pianoscales-org.png`,
@@ -23,13 +24,40 @@ import type {
 // only note spellings and right-hand fingering vary per scale.
 const ASCENDING_OFFSETS = [0, 2, 4, 5, 7, 9, 11, 12] as const
 
-type ScaleDefinition = {
-  slug: string
-  displayName: string
-  tonicPitchClass: number
-  positionInGroup: number
-  ascendingNotes: readonly string[]
-  ascendingFingering: readonly number[]
+// Two octaves repeat the same seven-degree cycle a twelfth higher, then close
+// on the upper tonic: 0 2 4 5 7 9 11 | 12 14 16 17 19 21 23 | 24.
+const TWO_OCTAVE_ASCENDING_OFFSETS = [
+  ...ASCENDING_OFFSETS.slice(0, 7),
+  ...ASCENDING_OFFSETS.slice(0, 7).map((offset) => offset + 12),
+  24
+] as const
+
+// The seven scales whose two-octave fingering follows from data this catalog
+// already documents. The five black-key scales are deliberately absent: their
+// one-octave patterns do not start on the thumb, so the repeat below is not
+// valid for them and no source here states their two-octave fingering.
+const TWO_OCTAVE_SCALE_SLUGS = new Set([
+  'c-major',
+  'g-major',
+  'd-major',
+  'a-major',
+  'e-major',
+  'b-major',
+  'f-major'
+])
+
+// Two octaves reuse the one-octave cycle: the first seven values repeat, then
+// the original closing value ends the scale. Same discipline as the descending
+// derivation below -- no new fingering data is invented, it is mechanically
+// derived from the one-octave pattern. Verified against both patterns in
+// scope:
+//   Group 1 [1,2,3,1,2,3,4,5] -> 1 2 3 1 2 3 4 | 1 2 3 1 2 3 4 | 5
+//   F major [1,2,3,4,1,2,3,4] -> 1 2 3 4 1 2 3 | 1 2 3 4 1 2 3 | 4
+// The F result keeps the thumb on F and C throughout, which is the standard
+// right hand for that scale.
+function repeatCycle<T>(values: readonly T[]): T[] {
+  const cycle = values.slice(0, 7)
+  return [...cycle, ...cycle, values[7]]
 }
 
 // Descending is the exact reverse of ascending: notes, offsets (mirrored
@@ -37,12 +65,25 @@ type ScaleDefinition = {
 // set for C major descending (AGENTS.md: "Fingering is the reverse of
 // known ascending; no new data needed") -- no new descending data is
 // invented here, it is mechanically derived.
-function buildExercises(def: ScaleDefinition): readonly CatalogExercise[] {
-  const ascendingSteps: CatalogStep[] = def.ascendingNotes.map(
+function buildOctaveExercises(
+  def: ScaleDefinition,
+  octaves: number
+): CatalogExercise[] {
+  const notes =
+    octaves === 1 ? [...def.ascendingNotes] : repeatCycle(def.ascendingNotes)
+  const fingering =
+    octaves === 1
+      ? [...def.ascendingFingering]
+      : repeatCycle(def.ascendingFingering)
+  const offsets =
+    octaves === 1 ? ASCENDING_OFFSETS : TWO_OCTAVE_ASCENDING_OFFSETS
+  const span = 12 * octaves
+
+  const ascendingSteps: CatalogStep[] = notes.map(
     (noteSpelling, index): CatalogStep => [
       noteSpelling,
-      ASCENDING_OFFSETS[index],
-      def.ascendingFingering[index]
+      offsets[index],
+      fingering[index]
     ]
   )
   const descendingSteps: CatalogStep[] = [...ascendingSteps]
@@ -50,14 +91,30 @@ function buildExercises(def: ScaleDefinition): readonly CatalogExercise[] {
     .map(
       ([noteSpelling, offset, fingerNumber]): CatalogStep => [
         noteSpelling,
-        offset - 12,
+        offset - span,
         fingerNumber
       ]
     )
   return [
-    { direction: 'ascending', steps: ascendingSteps },
-    { direction: 'descending', steps: descendingSteps }
+    { direction: 'ascending', octaves, steps: ascendingSteps },
+    { direction: 'descending', octaves, steps: descendingSteps }
   ]
+}
+
+function buildExercises(def: ScaleDefinition): readonly CatalogExercise[] {
+  const exercises = buildOctaveExercises(def, 1)
+  if (TWO_OCTAVE_SCALE_SLUGS.has(def.slug))
+    exercises.push(...buildOctaveExercises(def, 2))
+  return exercises
+}
+
+type ScaleDefinition = {
+  slug: string
+  displayName: string
+  tonicPitchClass: number
+  positionInGroup: number
+  ascendingNotes: readonly string[]
+  ascendingFingering: readonly number[]
 }
 
 function buildScale(def: ScaleDefinition): CatalogScale {

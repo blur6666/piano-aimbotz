@@ -7,10 +7,9 @@ import type { AppConfig } from '../src/server/config.js'
 
 const testConfig: AppConfig = {
   scoring: {
-    timingToleranceUs: Number.MAX_SAFE_INTEGER,
+    timingToleranceNoteFraction: 1_000,
     overlapToleranceUs: Number.MAX_SAFE_INTEGER,
     maxTimingFaultsPerRun: Number.MAX_SAFE_INTEGER,
-    maxOverlapFaultsPerRun: Number.MAX_SAFE_INTEGER,
     recoveryWindowSteps: 1
   },
   progression: {
@@ -18,7 +17,8 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
-  seedInitialTempoBpm: 60
+  seedInitialTempoBpm: 60,
+  notesPerBeat: 1
 }
 
 function seedAndOpenCMajorAscending(

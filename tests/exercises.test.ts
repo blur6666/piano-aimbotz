@@ -7,10 +7,9 @@ import type { AppConfig } from '../src/server/config.js'
 
 const testConfig: AppConfig = {
   scoring: {
-    timingToleranceUs: 50_000,
-    overlapToleranceUs: 0,
+    timingToleranceNoteFraction: 0.05,
+    overlapToleranceUs: 30_000,
     maxTimingFaultsPerRun: 0,
-    maxOverlapFaultsPerRun: 0,
     recoveryWindowSteps: 1
   },
   progression: {
@@ -18,11 +17,12 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
-  seedInitialTempoBpm: 60
+  seedInitialTempoBpm: 60,
+  notesPerBeat: 1
 }
 
 describe('GET /api/exercises', () => {
-  it('returns the full 3-group/12-scale/24-exercise catalog in progression order', async () => {
+  it('returns the full 3-group/12-scale/38-exercise catalog in progression order', async () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
     seedCatalog(sqlite, testConfig)
@@ -34,7 +34,11 @@ describe('GET /api/exercises', () => {
 
     expect(
       body.groups.map(
-        (group: { slug: string; progressionOrder: number; scales: unknown[] }) => ({
+        (group: {
+          slug: string
+          progressionOrder: number
+          scales: unknown[]
+        }) => ({
           slug: group.slug,
           progressionOrder: group.progressionOrder,
           scaleCount: group.scales.length
@@ -47,10 +51,7 @@ describe('GET /api/exercises', () => {
     ])
 
     const totalExercises = body.groups.reduce(
-      (
-        sum: number,
-        group: { scales: Array<{ exercises: unknown[] }> }
-      ) =>
+      (sum: number, group: { scales: Array<{ exercises: unknown[] }> }) =>
         sum +
         group.scales.reduce(
           (scaleSum: number, scale: { exercises: unknown[] }) =>
@@ -59,7 +60,7 @@ describe('GET /api/exercises', () => {
         ),
       0
     )
-    expect(totalExercises).toBe(24)
+    expect(totalExercises).toBe(38)
 
     expect(body.groups[0].scales[0]).toMatchObject({
       slug: 'c-major',
@@ -68,9 +69,15 @@ describe('GET /api/exercises', () => {
     })
     expect(
       body.groups[0].scales[0].exercises.map(
-        (exercise: { id: number; direction: string }) => exercise.direction
+        (exercise: { id: number; direction: string; octaves: number }) =>
+          `${exercise.direction} ${exercise.octaves}-octave`
       )
-    ).toEqual(['ascending', 'descending'])
+    ).toEqual([
+      'ascending 1-octave',
+      'descending 1-octave',
+      'ascending 2-octave',
+      'descending 2-octave'
+    ])
 
     // Every exercise: starts at the configured seed tempo, has 8 steps.
     for (const group of body.groups)
@@ -78,7 +85,7 @@ describe('GET /api/exercises', () => {
         for (const exercise of scale.exercises) {
           expect(exercise.currentTempoBpm).toBe(60)
           expect(exercise.consecutiveCleanRuns).toBe(0)
-          expect(exercise.steps).toHaveLength(8)
+          expect(exercise.steps).toHaveLength(exercise.octaves * 7 + 1)
         }
 
     // Spot-check the resolved A-flat fingering conflict (TSV value, see
@@ -91,7 +98,9 @@ describe('GET /api/exercises', () => {
       (exercise: { direction: string }) => exercise.direction === 'ascending'
     )
     expect(
-      aFlatAscending.steps.map((step: { fingerNumber: number }) => step.fingerNumber)
+      aFlatAscending.steps.map(
+        (step: { fingerNumber: number }) => step.fingerNumber
+      )
     ).toEqual([3, 4, 1, 2, 3, 1, 2, 3])
 
     await app.close()

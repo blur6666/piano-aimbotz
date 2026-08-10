@@ -8,7 +8,10 @@ function fakeInput(): MIDIInput {
 }
 
 function message(timeStamp: number, ...data: number[]): MIDIMessageEvent {
-  return { data: Uint8Array.from(data), timeStamp } as unknown as MIDIMessageEvent
+  return {
+    data: Uint8Array.from(data),
+    timeStamp
+  } as unknown as MIDIMessageEvent
 }
 
 // Deliver through the input the way the browser does, so a detached handler
@@ -77,7 +80,10 @@ describe('startCapture', () => {
   it('ignores messages without data', () => {
     const input = fakeInput()
     const capture = startCapture(input, 0)
-    input.onmidimessage!({ data: null, timeStamp: 5 } as unknown as MIDIMessageEvent)
+    input.onmidimessage!({
+      data: null,
+      timeStamp: 5
+    } as unknown as MIDIMessageEvent)
     expect(capture.events).toHaveLength(0)
   })
 
@@ -120,6 +126,13 @@ describe('runExercise submission', () => {
   const submitResponse: SubmitRunResponse = {
     run: { id: 1, exerciseId: 7, firstExpectedBeatAtMs: 0, tempoBpm: 60 },
     originalAssessment: {
+      scoringParameters: {
+        timingToleranceNoteFraction: 0.1,
+        overlapToleranceUs: 30_000,
+        maxTimingFaultsPerRun: 0,
+        recoveryWindowSteps: 1
+      },
+      timingToleranceUs: 100_000,
       steps: Array.from({ length: 8 }, (_, stepIndex) => ({
         stepIndex,
         expectedMidiPitch: 60 + stepIndex,
@@ -129,6 +142,8 @@ describe('runExercise submission', () => {
         timingDeviationUs: 0,
         timingExcluded: false,
         timingFault: false,
+        overlapDurationUs: null,
+        overlapReleaseMissing: false,
         overlapFault: false
       })),
       faults: [],
@@ -139,6 +154,7 @@ describe('runExercise submission', () => {
         timingSampleCount: 8,
         timingExcludedCount: 0,
         meanAbsoluteTimingDeviationUs: 0,
+        timingStartOffsetUs: 0,
         passed: true
       }
     },
@@ -178,12 +194,74 @@ describe('runExercise submission', () => {
     vi.unstubAllGlobals()
   })
 
+  it('abandons an aborted run without submitting it', async () => {
+    const input = fakeInput()
+    const controller = new AbortController()
+    const runPromise = runExercise(
+      input,
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: controller.signal }
+    )
+
+    input.onmidimessage!(message(4000, 0x90, 60, 100))
+    await vi.advanceTimersByTimeAsync(5_000)
+    controller.abort()
+
+    // A run cut short is not an attempt: it must not reach the database,
+    // where it would count against the streak.
+    await expect(runPromise).resolves.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // The capture window's own timer must not fire a late submission after
+    // the abort already resolved the run.
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('threads the abort signal into the submission fetch', async () => {
+    // Make fetch hang so the abort listener has a chance to fire before the
+    // submission response arrives. A real browser will cancel the request
+    // because the signal is passed through.
+    fetchMock.mockImplementationOnce(async () => new Promise(() => undefined))
+
+    const input = fakeInput()
+    const controller = new AbortController()
+    const runPromise = runExercise(
+      input,
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: controller.signal }
+    )
+
+    input.onmidimessage!(message(4000, 0x90, 60, 100))
+    await vi.advanceTimersByTimeAsync(13_000)
+    controller.abort()
+
+    await expect(runPromise).resolves.toBeNull()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it('does not start a run that is aborted before it begins', async () => {
+    const runPromise = runExercise(
+      fakeInput(),
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: AbortSignal.abort() }
+    )
+    await expect(runPromise).resolves.toBeNull()
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('submits one request shaped from the capture window, with wall-clock time from performance.timeOrigin', async () => {
     const input = fakeInput()
     const beats: string[] = []
     const runPromise = runExercise(
       input,
-      { id: 7, tempoBpm: 60, steps },
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
       (label) => beats.push(label)
     )
 
@@ -195,7 +273,13 @@ describe('runExercise submission', () => {
     // Capture window: 4 count-in + 8 scale beats + 1 tail beat at 60 BPM.
     await vi.advanceTimersByTimeAsync(13_000)
     const result = await runPromise
-    expect(result).toEqual(submitResponse)
+    expect(result?.response).toEqual(submitResponse)
+    // The captured events come back with the response so the end-of-round
+    // display can name the pitch actually played for each hard fault; the
+    // server does not echo them on submit.
+    expect(result?.events).toEqual(
+      JSON.parse(fetchMock.mock.calls[0][1].body).events
+    )
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0]

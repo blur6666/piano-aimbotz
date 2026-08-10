@@ -160,12 +160,13 @@ There is a unique constraint on `(progression_group_id, position_in_group)`.
 | `id` | `INTEGER` | Primary key |
 | `scale_id` | `INTEGER` | Not null, foreign key to `scales.id`, delete restricted |
 | `direction` | `TEXT` | Not null, check in `ascending`, `descending` |
+| `octaves` | `INTEGER` | Not null, default 1, check in `1`, `2` |
 
-There is a unique constraint on `(scale_id, direction)`.
+There is a unique constraint on `(scale_id, direction, octaves)`.
 
-Hand, octave count, and rhythmic subdivision are not columns. V1 has one right hand, one octave, and one note per beat. Adding speculative dimensions would permit invalid combinations that the product cannot perform. A future scope change adds columns and a real migration.
+Hand and rhythmic subdivision are not columns. V1 has one right hand. Octave count is a column because two-octave variants are seeded for the scales whose fingering is sourced; the check bounds it to the values (1 and 2) the catalog can actually supply. Rhythmic subdivision stays out of the exercise table — `notes_per_beat` is a per-run user preference, not an exercise dimension. Adding speculative dimensions beyond these would permit invalid combinations that the product cannot perform.
 
-The seed validator enforces exactly two exercises per scale and therefore 24 exercises in total.
+The seed validator enforces that every scale has one-octave exercises and that each octave count a scale offers is a complete ascending/descending pair — up to four exercises per scale and 38 in total.
 
 ### `exercise_steps`
 
@@ -173,19 +174,19 @@ The seed validator enforces exactly two exercises per scale and therefore 24 exe
 | --- | --- | --- |
 | `id` | `INTEGER` | Primary key |
 | `exercise_id` | `INTEGER` | Not null, foreign key to `exercises.id`, delete cascades |
-| `step_index` | `INTEGER` | Not null, check from 0 through 7 |
+| `step_index` | `INTEGER` | Not null, check from 0 through 14 |
 | `note_spelling` | `TEXT` | Not null, check non-empty |
-| `semitone_offset` | `INTEGER` | Not null, check from -12 through 12 |
+| `semitone_offset` | `INTEGER` | Not null, check from -24 through 24 |
 | `finger_number` | `INTEGER` | Not null, check from 1 through 5 |
 
 There is a unique constraint on `(exercise_id, step_index)`.
 
-The database can constrain individual rows but cannot enforce exactly eight rows, contiguous indexes, a zero first offset, the correct signed endpoint, or musically valid note spellings without triggers. Triggers were rejected as hidden domain logic. The seed validator enforces:
+The database can constrain individual rows but cannot enforce exactly eight or fifteen rows, contiguous indexes, a zero first offset, the correct signed endpoint, or musically valid note spellings without triggers. Triggers were rejected as hidden domain logic. The seed validator enforces:
 
-- exactly eight steps indexed 0 through 7
+- `octaves * 7 + 1` steps indexed 0 through `octaves * 7`
 - step 0 offset equals 0
-- ascending step 7 offset equals 12
-- descending step 7 offset equals -12
+- ascending last step offset equals `12 * octaves`
+- descending last step offset equals `-12 * octaves`
 - offsets are strictly increasing for ascending and strictly decreasing for descending
 - each displayed note and finger belongs to the configured catalog dataset
 
@@ -197,8 +198,9 @@ The database can constrain individual rows but cannot enforce exactly eight rows
 | `exercise_id` | `INTEGER` | Not null, foreign key to `exercises.id`, delete restricted |
 | `performed_at_ms` | `INTEGER` | Not null, check non-negative |
 | `tempo_bpm` | `INTEGER` | Not null, check greater than zero |
+| `notes_per_beat` | `INTEGER` | Not null, check in `1`, `2` |
 
-`performed_at_ms` is the browser's wall-clock estimate for the first expected beat, not the HTTP receipt time. It exists for history ordering; timing analysis uses event offsets.
+`performed_at_ms` is the browser's wall-clock estimate for the first expected beat, not the HTTP receipt time. It exists for history ordering; timing analysis uses event offsets. `notes_per_beat` records the beat grid the run was played and scored against so re-scoring later does not silently rewrite the spacing.
 
 There is an index on `(exercise_id, performed_at_ms DESC, id DESC)` for exercise history. Progression replay uses server-assigned run IDs, not this wall-clock index.
 
@@ -237,6 +239,7 @@ The browser normalizes MIDI note-on messages with velocity zero into `note_off`.
 | `timing_sample_count` | `INTEGER` | Not null, check non-negative |
 | `timing_excluded_count` | `INTEGER` | Not null, check non-negative |
 | `mean_absolute_timing_deviation_us` | `INTEGER` | Nullable, otherwise check non-negative |
+| `timing_start_offset_us` | `INTEGER` | Nullable fitted intercept in microseconds; reported, never a fault on its own |
 | `passed` | `INTEGER` | Not null, check in 0, 1 |
 | `assessed_at_ms` | `INTEGER` | Not null, check non-negative |
 
@@ -245,7 +248,7 @@ Using `run_id` as both primary and foreign key enforces at most one stored origi
 Cross-column checks enforce:
 
 - `timing_fault_count <= timing_sample_count`
-- `timing_sample_count + timing_excluded_count <= 8`
+- `timing_sample_count + timing_excluded_count <= 15`
 - `mean_absolute_timing_deviation_us` is null exactly when `timing_sample_count` is zero
 
 Only the original aggregate result is persisted. Per-step matching remains derived analysis rather than storage. The current detailed assessment is calculated from raw events when requested.
@@ -261,7 +264,7 @@ A JSON-only assessment result was rejected because the aggregate fields are stab
 | `current_tempo_bpm` | `INTEGER` | Not null, check greater than zero |
 | `consecutive_clean_runs` | `INTEGER` | Not null, check non-negative |
 
-There is exactly one snapshot row per seeded exercise. Ascending and descending therefore progress independently.
+There is exactly one snapshot row per seeded exercise. Ascending and descending therefore progress independently. One-octave and two-octave exercises for the same scale also progress independently: each is its own seeded exercise, so a player can be advanced on one-octave C major and start fresh on two-octave C major.
 
 `initial_tempo_bpm` is the immutable genesis value needed for deterministic rebuilds. The other two fields are derived state. The application updates them in the same transaction that inserts the run and original assessment. It must also provide a rebuild command that resets an exercise to its persisted initial tempo and zero streak, then replays original assessments in `run_id` order using each assessment's stored progression policy version and parameters.
 
@@ -277,7 +280,7 @@ SQLite enforces:
 
 - primary-key identity
 - all foreign-key relationships
-- one exercise per scale and direction
+- one exercise per scale, direction, and octave count
 - one step per exercise and index
 - one MIDI event per run and sequence number
 - at most one original assessment and progress snapshot per owner
@@ -290,7 +293,7 @@ SQLite enforces:
 
 The application enforces:
 
-- exact catalog membership and 3/12/24/8 row counts
+- exact catalog membership and 3 groups / 12 scales / 38 exercises (8 or 15 steps each)
 - musical consistency of tonic pitch classes, offsets, note spellings, and fingering
 - immutable catalog definitions after runs reference them
 - contiguous event sequence numbers beginning at zero
@@ -322,8 +325,8 @@ A separate idempotent seed command inserts, in one transaction:
 
 - progression groups
 - twelve physical scales
-- ascending and descending exercises
-- eight steps for each exercise
+- ascending and descending exercises at each seeded octave count
+- 8 or 15 steps for each exercise (one or two octaves)
 - one initial progress row per exercise, using the configured initial tempo
 
 Schema migrations create structure; seeds create domain catalog data. Keeping catalog data out of migrations is important because the fingering dataset and its provenance are unresolved configuration, not schema.
@@ -346,7 +349,7 @@ The user initiates `navigator.requestMIDIAccess({ sysex: false })`, which disabl
 
 The browser schedules the metronome with Web Audio while measuring MIDI against the DOM high-resolution time origin used by `performance.now()` and `MIDIMessageEvent.timeStamp`. When scheduling begins, it samples `performance.now()` and `AudioContext.currentTime` together. It converts the scheduled first-beat audio time through that sampled pair into a `DOMHighResTimeStamp` before the four-beat count-in begins.
 
-Capture starts at the beginning of the count-in and ends one beat after the eighth expected note. This fixed tail permits the final note-off to be retained. Notes during the count-in are stored with negative offsets and are eligible to be scored as early extra notes.
+Capture starts at the beginning of the count-in and ends one beat after the final expected note. This fixed tail permits the final note-off to be retained. Notes during the count-in are stored with negative offsets and are eligible to be scored as early extra notes.
 
 A manual Stop button was rejected as the normal completion rule because missed notes make note-count completion unreliable, while manual timing would make runs inconsistent. An explicit Cancel action may discard the browser-local attempt without sending it.
 
@@ -377,7 +380,9 @@ type ExerciseListResponse = {
       exercises: Array<{
         id: number;
         direction: "ascending" | "descending";
+        octaves: number;
         currentTempoBpm: number;
+        notesPerBeat: number;
         consecutiveCleanRuns: number;
         steps: Array<{
           stepIndex: number;
@@ -468,10 +473,9 @@ Scoring lives in `src/domain/scoring`. It imports no Fastify, React, Drizzle, SQ
 
 ```ts
 type ScoringConfig = {
-  timingToleranceUs: number;
+  timingToleranceNoteFraction: number;
   overlapToleranceUs: number;
   maxTimingFaultsPerRun: number;
-  maxOverlapFaultsPerRun: number;
   recoveryWindowSteps: number;
 };
 
@@ -511,6 +515,7 @@ type ScoreRunInput = {
     }>;
   };
   tempoBpm: number;
+  notesPerBeat: number;
   events: Array<{
     sequenceNumber: number;
     offsetUs: number;
@@ -525,6 +530,7 @@ type ScoreRunInput = {
 type Assessment = {
   algorithmVersion: string;
   scoringParameters: ScoringConfig;
+  timingToleranceUs: number;
   steps: StepAssessment[];
   faults: Fault[];
   summary: {
@@ -534,6 +540,7 @@ type Assessment = {
     timingSampleCount: number;
     timingExcludedCount: number;
     meanAbsoluteTimingDeviationUs: number | null;
+    timingStartOffsetUs: number | null;
     passed: boolean;
   };
 };
@@ -541,7 +548,10 @@ type Assessment = {
 declare function scoreRun(input: ScoreRunInput): Assessment;
 ```
 
-All `ScoringConfig` values are non-negative integers in microseconds or counts as named. Runtime configuration validation enforces that shape. The types above are domain contracts; transport response schemas contain the same fields.
+`timingToleranceNoteFraction` is a non-negative fraction capped at 0.5. The
+remaining `ScoringConfig` values are non-negative microseconds or counts as
+named. Runtime configuration validation enforces that shape. The types above
+are domain contracts; transport response schemas contain the same fields.
 
 The detailed `steps` and `faults` result is returned to the caller but is not materialized in v1. The summary and exact configuration are persisted as the original assessment.
 
@@ -564,10 +574,10 @@ For every later note-on:
 2. If it repeats the most recently matched pitch, record a `duplicate` hard fault attributed to the current expected step and do not advance. This prevents a repeated tonic near the start from being mistaken for the octave endpoint.
 3. Otherwise, if it equals the nearest later unmatched expected pitch, mark each skipped step with one `missed` hard fault, match the played note to that later step, and continue after it.
 4. Otherwise, record an `extra` hard fault attributed to the current expected step and do not advance.
-5. After step 7 is matched, every further note-on in the capture window is an `extra` hard fault attributed to step 7.
+5. After the final step is matched, every further note-on in the capture window is an `extra` hard fault attributed to that final step.
 6. At the end of the capture window, every unmatched expected step is a `missed` hard fault attributed to itself.
 
-`StepAssessment.hardFaultCount` is the count of hard faults attributed to that step. The aggregate hard-fault count is the sum of all eight step counts, so post-completion extras are not a hidden global exception to per-step output.
+`StepAssessment.hardFaultCount` is the count of hard faults attributed to that step. The aggregate hard-fault count is the sum of every step count, so post-completion extras are not a hidden global exception to per-step output.
 
 This greedy ordered matcher was chosen over matching by nearest beat. Beat-slot matching can turn one sufficiently late note into a different expected step, which contaminates the timing measurement with the matching heuristic. Keeping the cursor forever on a missed step was rejected because it would make every following correct note fail and would contradict the requirement to continue after a stumble.
 
@@ -575,13 +585,14 @@ This greedy ordered matcher was chosen over matching by nearest beat. Beat-slot 
 
 Expected step `i` occurs at the integer microsecond offset:
 
-`Math.round(i * 60,000,000 / tempoBpm)` from the first expected beat.
+`Math.round(i * 60,000,000 / (tempoBpm * notesPerBeat))` from the first
+expected beat.
 
-Timing deviation is played note-on offset minus expected offset. One note occurs per metronome beat. The scorer uses absolute deviation for aggregate accuracy.
+Timing is measured against a least-squares line fitted to each run's non-excluded matched notes. A step's timing deviation is its residual from that line, so the metric measures note-to-note evenness rather than a constant device or adaptation offset. The fitted intercept at the first expected beat is returned as `timingStartOffsetUs` for feedback, but never faults a run. Each metronome beat contains the run's stored `notesPerBeat` expected notes. `notesPerBeat` is a user preference — how many notes the player wants between each audible metronome click, for their ear's reference — not an architectural constraint. The internal beat grid is always one beat per metronome click; `notesPerBeat` only subdivides each click for expected-note placement and scoring.
 
 After any hard fault, the configured number of subsequently matched notes is excluded from timing fault counts, timing sample counts, and the mean. A note that resynchronizes after marking skipped steps is the first excluded note. A later hard fault restarts the exclusion window. Excluded deviations may still be returned for display, marked as excluded.
 
-A non-excluded matched note is a timing fault when its absolute deviation is strictly greater than the configured tolerance; equality is not a fault. The mean is `Math.round(sum(abs(deviation)) / timingSampleCount)` and is null when there are no included samples. No tolerance value is selected here.
+A non-excluded matched note is a timing fault when its absolute residual is strictly greater than the configured tolerance; equality is not a fault. The mean absolute residual is `Math.round(sum(abs(deviation)) / timingSampleCount)` and is null when there are no included samples. No tolerance value is selected here.
 
 ### Overlap
 
@@ -593,9 +604,9 @@ Velocity does not affect any v1 result.
 
 ### Pass and progression
 
-An assessment passes only when it has zero hard faults, `timingFaultCount <= maxTimingFaultsPerRun`, and `overlapFaultCount <= maxOverlapFaultsPerRun`. Those gate values remain unselected.
+An assessment passes only when it has zero hard faults and `timingFaultCount <= maxTimingFaultsPerRun`. Overlap is measured and reported, but does not gate progression until a defensible threshold exists.
 
-Progression is a separate pure module in `src/domain/progression`. It consumes the stored original assessment, existing snapshot, and progression policy. A current lazily calculated assessment never changes progression.
+Progression is a separate pure module in `src/domain/progression`. It consumes the stored assessment, existing snapshot, and progression policy. A lazily calculated assessment returned by the run-detail endpoint never changes progression. A deliberate scoring-rule migration uses `npm run rescore-assessments` to replace stored assessments and rebuild progress from them. Rescoring updates the scoring outputs but preserves the original `assessed_at_ms`, so the moment a run was first judged stays a matter of record.
 
 Three consecutive passing original assessments at the current tempo advance that exercise by the configured tempo increment and reset its streak. Failed run behavior is selected through required configuration; this document does not choose between resetting the streak and stepping the tempo down.
 
@@ -667,6 +678,7 @@ type RunHistoryResponse = {
       timingSampleCount: number;
       timingExcludedCount: number;
       meanAbsoluteTimingDeviationUs: number | null;
+      timingStartOffsetUs: number | null;
       passed: boolean;
     };
   }>;
@@ -846,7 +858,7 @@ Coverage is a diagnostic, not a substitute for the named rule tests. The scoring
 ## Invariants that must not be rediscovered
 
 - There is one user, one deployable, one server process, and one SQLite file.
-- V1 is right hand, one octave, one note per beat, with fixed tempo during a run.
+- V1 is right hand, with fixed tempo during a run.
 - Ascending and descending are separate exercises and progress independently.
 - F-sharp/G-flat is one physical scale entry.
 - Scale order follows fingering groups, not accidental count.

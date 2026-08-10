@@ -1,0 +1,26 @@
+# Line endings are a repository property, not a per-developer one. Without
+# this file the working tree depends on each machine's core.autocrlf setting,
+# which is how reports/*/data/*.csv came to be CRLF on Windows and broke
+# `npm run report:charts`: the CSV reader split on \n, every row kept a
+# trailing \r, and it landed on the last column name -- silently renaming
+# `finger_number` to `finger_number\r` so every lookup returned undefined.
+* text=auto
+
+# Read by scripts and by SQLite. Pin these to LF in the working tree on every
+# platform so a parser never has to defend against a stray \r.
+*.csv text eol=lf
+*.sql text eol=lf
+
+# Prettier compares line endings as part of formatting. Keep every checked
+# source format on LF so Windows worktrees agree with CI.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+
+# Never touch: the count-in samples and the fingering reference scan.
+*.mp3 binary
+*.png binary
+*.db binary

@@ -144,3 +144,8 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Generated report exports. REPORT.md, charts/ and data/ are the committed
+# sources; the HTML is a shareable single-file artifact rebuilt on demand with
+# `npm run report:html`. Delete this line if you would rather commit it.
+reports/**/REPORT.html

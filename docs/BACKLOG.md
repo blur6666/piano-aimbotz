@@ -2,13 +2,18 @@
 
 ## 🏃‍♂️ Active Sprint (Agent Actionable)
 
-_Nothing open right now._
+No active items.
 
----
+## Completed
 
-## ✋ Blocked / Needs Human Action
-
-_Nothing open right now._
+- **Two-octave scales:** C-major ascending playback passed all manual checks:
+  the click reaches all 15 notes, timeline targets align, and the three-octave
+  reference keyboard highlights the intended two-octave C-to-C span. Group 1
+  plus F remain supported; black-key two-octave fingerings still need sources.
+- **Timing reference:** Stage 3 scores residual unevenness against each run's
+  best-fit line, reports the fitted start offset separately, and does not apply
+  a guessed audio or BLE MIDI latency correction. Existing runs are explicitly
+  re-scored with `npm run rescore-assessments`, which also rebuilds progress.
 
 ---
 

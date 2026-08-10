@@ -18,7 +18,10 @@ export async function fetchExercises(): Promise<SelectableExercise[]> {
           ...exercise,
           scaleSlug: scale.slug,
           scaleDisplayName: scale.displayName,
-          label: `${scale.displayName} ${exercise.direction}`
+          label:
+            exercise.octaves === 1
+              ? `${scale.displayName} ${exercise.direction}`
+              : `${scale.displayName} ${exercise.direction} (${exercise.octaves} octaves)`
         })
   return exercises
 }

@@ -16,7 +16,7 @@ export const SubmitRunSchema = Type.Object({
 })
 
 export const ExerciseStepSchema = Type.Object({
-  stepIndex: Type.Integer({ minimum: 0, maximum: 7 }),
+  stepIndex: Type.Integer({ minimum: 0, maximum: 14 }),
   noteSpelling: Type.String({ minLength: 1 }),
   fingerNumber: Type.Integer({ minimum: 1, maximum: 5 })
 })
@@ -27,7 +27,15 @@ export const ExerciseSchema = Type.Object({
     Type.Literal('ascending'),
     Type.Literal('descending')
   ]),
+  // 1 or 2. The client needs it to label the picker and size the on-screen
+  // keyboard; step count follows from it as octaves * 7 + 1.
+  octaves: Type.Integer({ minimum: 1, maximum: 2 }),
   currentTempoBpm: Type.Integer({ minimum: 1 }),
+  // The beat grid the next run will be played and scored against: 2 for
+  // straight eighths, 1 for quarters. The client needs it to schedule the
+  // metronome and lay out the timeline; the server still applies its own
+  // value when scoring rather than trusting a submission.
+  notesPerBeat: Type.Integer({ minimum: 1, maximum: 2 }),
   consecutiveCleanRuns: Type.Integer({ minimum: 0 }),
   steps: Type.Array(ExerciseStepSchema)
 })

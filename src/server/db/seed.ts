@@ -45,8 +45,7 @@ function seedProgressionGroup(
       'SELECT id, name, progression_order AS progressionOrder FROM progression_groups WHERE slug = ?'
     )
     .get(group.slug) as
-    | { id: number; name: string; progressionOrder: number }
-    | undefined
+    { id: number; name: string; progressionOrder: number } | undefined
 
   if (existing) {
     if (
@@ -130,17 +129,20 @@ function seedExercise(
   scaleId: number
 ): number {
   const existing = sqlite
-    .prepare('SELECT id FROM exercises WHERE scale_id = ? AND direction = ?')
-    .get(scaleId, exercise.direction) as { id: number } | undefined
+    .prepare(
+      'SELECT id FROM exercises WHERE scale_id = ? AND direction = ? AND octaves = ?'
+    )
+    .get(scaleId, exercise.direction, exercise.octaves) as
+    { id: number } | undefined
   if (existing) return existing.id
 
   const inserted = sqlite
     .prepare(
-      `INSERT INTO exercises (scale_id, direction)
-       VALUES (?, ?)
+      `INSERT INTO exercises (scale_id, direction, octaves)
+       VALUES (?, ?, ?)
        RETURNING id`
     )
-    .get(scaleId, exercise.direction) as { id: number }
+    .get(scaleId, exercise.direction, exercise.octaves) as { id: number }
   return inserted.id
 }
 

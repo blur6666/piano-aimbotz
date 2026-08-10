@@ -2,15 +2,13 @@ import type { MidiEvent, SubmitRun } from '../../shared/contracts.js'
 import { startCapture } from '../midi/capture.js'
 import { readableMidiNote } from '../midi/format.js'
 import { scheduleMetronome } from '../metronome/index.js'
-import {
-  submitRun,
-  type AssessmentStep,
-  type SubmitRunResponse
-} from '../api/runs.js'
+import { submitRun, type SubmitRunResponse } from '../api/runs.js'
 
 export type PracticeExercise = {
   id: number
   tempoBpm: number
+  // 2 = straight eighths, so eight notes occupy four metronome beats.
+  notesPerBeat: number
   steps: Array<{ noteSpelling: string; fingerNumber: number }>
 }
 
@@ -19,6 +17,8 @@ export type RunSchedule = {
   // shared clock with MidiEvent offsets (see capture.ts).
   firstExpectedBeat: number
   beatMs: number
+  // Spacing between consecutive expected notes: beatMs / notesPerBeat.
+  noteMs: number
 }
 
 export type RunExerciseOptions = {
@@ -38,91 +38,92 @@ export type RunExerciseOptions = {
   // freely differ from the server's currentTempoBpm in this mode; nothing
   // is scored or saved.
   skipSubmit?: boolean
+  // Click loudness, 0 to 1. Presentation only: the click is a practice aid
+  // and nothing about it reaches scoring.
+  metronomeVolume?: number
+  // Spoken count-in samples, or null/undefined for clicks only.
+  countInVoice?: readonly AudioBuffer[] | null
+  // Abandons the run: stops capture, silences the metronome and resolves
+  // null without submitting. A run cut short is not a run the player
+  // attempted, so it must not reach the database and dent a streak.
+  signal?: AbortSignal
 }
 
-// Temporary console-only performance report (BACKLOG.md). The real
-// scoring/penalty formula is explicitly undecided, so every point value
-// below is a loud, unmistakable placeholder rather than an invented
-// number that could pass for real -- everything else printed is a real
-// figure scoreRun already computes (hit/miss per note, timing deviation,
-// hard/timing/overlap fault counts).
-const SCORE_PLACEHOLDER = '[PLACEHOLDER -- scoring formula not decided]'
-
-function printRunSummary(
-  exerciseSteps: PracticeExercise['steps'],
-  assessment: SubmitRunResponse['originalAssessment']
-): void {
-  const line = '-'.repeat(70)
-  console.log(`Summary ${line}`)
-  assessment.steps.forEach((step: AssessmentStep, index) => {
-    const note = exerciseSteps[index]?.noteSpelling ?? '?'
-    const label = `${index + 1}. ${note}`.padEnd(6)
-    if (step.missed) {
-      console.log(
-        `${label} ❌ Miss!  (not played). Penalty: ${SCORE_PLACEHOLDER}`
-      )
-      return
-    }
-    const deviationMs =
-      step.timingDeviationUs === null ? null : step.timingDeviationUs / 1000
-    const deviationLabel =
-      deviationMs === null
-        ? ''
-        : Math.abs(deviationMs) < 5
-          ? 'Perfect! (<5ms)'
-          : `${deviationMs >= 0 ? '+' : ''}${deviationMs.toFixed(1)}ms from perfect`
-    const flags = [
-      step.timingExcluded ? '(timing excluded, recovery window)' : '',
-      step.hardFaultCount > 0
-        ? `⚠ ${step.hardFaultCount} hard fault(s), penalty: ${SCORE_PLACEHOLDER}`
-        : ''
-    ]
-      .filter(Boolean)
-      .join(' ')
-    console.log(
-      `${label} ✅ Hit!  ${deviationLabel} Soft fault value: ${SCORE_PLACEHOLDER} ${flags}`.trimEnd()
-    )
-  })
-  console.log(line)
-  const notesHit = assessment.steps.filter((step) => !step.missed).length
-  const notesMissed = assessment.steps.length - notesHit
-  console.log(`Notes hit:            ${notesHit} / ${assessment.steps.length}`)
-  console.log(`Notes missed:         ${notesMissed}`)
-  console.log(`Hard faults:          ${assessment.summary.hardFaultCount}`)
-  console.log(`Timing faults:        ${assessment.summary.timingFaultCount}`)
-  console.log(`Overlap faults:       ${assessment.summary.overlapFaultCount}`)
-  console.log(
-    `Mean abs deviation:   ${assessment.summary.meanAbsoluteTimingDeviationUs === null ? '—' : `${(assessment.summary.meanAbsoluteTimingDeviationUs / 1000).toFixed(1)}ms`}`
-  )
-  console.log(`Passed:               ${assessment.summary.passed}`)
-  console.log(`Total hard fault penalty: ${SCORE_PLACEHOLDER}`)
-  console.log(`Total soft fault penalty: ${SCORE_PLACEHOLDER}`)
-  console.log(`Total score:              ${SCORE_PLACEHOLDER}`)
+export type RunOutcome = {
+  response: SubmitRunResponse
+  // The run's captured events, returned so the caller can name the pitch
+  // actually played for each hard fault. The server does not echo events
+  // back on submit, and holding them here avoids a follow-up read.
+  events: MidiEvent[]
 }
 
-// Resolves to the real server response for a normal (submitted) run, or
-// null for a practice run (options.skipSubmit) that was never sent.
+// Resolves to the run outcome for a normal (submitted) run, or null for a
+// practice run (options.skipSubmit) that was never sent.
 export function runExercise(
   input: MIDIInput,
   exercise: PracticeExercise,
   onBeatChange: (label: string) => void,
   options: RunExerciseOptions = {}
-): Promise<SubmitRunResponse | null> {
+): Promise<RunOutcome | null> {
   const countInBeats = 4
+  // The click stays on the beat (SPEC.md), so eight notes at two per beat
+  // occupy four scale beats, not eight.
+  // Math.ceil because an odd step count at two notes per beat lands the final
+  // onset mid-beat: 15 eighths span 7.5 beats, and the loop that schedules
+  // clicks and the tail beat only understands whole ones. Rounding up leaves
+  // the tail a full beat past the last note, which is what it is for.
+  const scaleBeats = Math.ceil(exercise.steps.length / exercise.notesPerBeat)
   const { audio, firstExpectedBeat, beatMs } = scheduleMetronome(
     exercise.tempoBpm,
     countInBeats,
-    exercise.steps.length,
-    onBeatChange
+    scaleBeats,
+    onBeatChange,
+    options.metronomeVolume,
+    options.countInVoice
   )
-  options.onScheduled?.({ firstExpectedBeat, beatMs })
+  options.onScheduled?.({
+    firstExpectedBeat,
+    beatMs,
+    noteMs: beatMs / exercise.notesPerBeat
+  })
   const capture = startCapture(input, firstExpectedBeat, options.onLiveNote)
 
   return new Promise((resolve, reject) => {
-    window.setTimeout(
+    let timer = 0
+    let settled = false
+    const finish = (outcome: RunOutcome | null) => {
+      if (settled) return
+      settled = true
+      options.signal?.removeEventListener('abort', abandon)
+      resolve(outcome)
+    }
+    const fail = (error: unknown) => {
+      if (settled) return
+      settled = true
+      options.signal?.removeEventListener('abort', abandon)
+      reject(error)
+    }
+    const abandon = () => {
+      window.clearTimeout(timer)
+      capture.stop()
+      void audio.close()
+      console.info('[MIDI] run stopped before the capture window closed.')
+      finish(null)
+    }
+    if (options.signal?.aborted) {
+      abandon()
+      return
+    }
+    options.signal?.addEventListener('abort', abandon, { once: true })
+
+    timer = window.setTimeout(
       () => {
         capture.stop()
-        audio.close()
+        void audio.close()
+        if (options.signal?.aborted) {
+          finish(null)
+          return
+        }
         console.table(
           capture.events.map((event) => ({
             sequence: event.sequenceNumber,
@@ -138,7 +139,11 @@ export function runExercise(
           console.log(
             `Practice run at ${exercise.tempoBpm} BPM -- not submitted, no score.`
           )
-          resolve(null)
+          finish(null)
+          return
+        }
+        if (options.signal?.aborted) {
+          finish(null)
           return
         }
         const payload: SubmitRun = {
@@ -149,14 +154,14 @@ export function runExercise(
           tempoBpm: exercise.tempoBpm,
           events: capture.events
         }
-        submitRun(payload).then((response) => {
-          printRunSummary(exercise.steps, response.originalAssessment)
-          resolve(response)
-        }, reject)
+        submitRun(payload, options.signal).then(
+          (response) => finish({ response, events: capture.events }),
+          fail
+        )
       },
-      // one beat past the eighth expected note, matching the metronome's
+      // one beat past the final expected note, matching the metronome's
       // scheduled tail beat, so the final note-off is captured
-      (countInBeats + exercise.steps.length + 1) * beatMs
+      (countInBeats + scaleBeats + 1) * beatMs
     )
   })
 }

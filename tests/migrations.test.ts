@@ -6,7 +6,10 @@ import { MIGRATION_FILES } from '../src/server/db/migration-files.js'
 import { applyMigrations } from '../src/server/db/apply-migrations.js'
 
 function readMigration(filename: string): string {
-  return fs.readFileSync(path.join(process.cwd(), 'migrations', filename), 'utf8')
+  return fs.readFileSync(
+    path.join(process.cwd(), 'migrations', filename),
+    'utf8'
+  )
 }
 
 describe('applyMigrations', () => {
@@ -55,15 +58,30 @@ describe('applyMigrations', () => {
   it('migration 0006 seeds the group-1/c-major scale that pre-existing exercises rely on', () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
-    expect(sqlite.prepare('SELECT slug, name, progression_order FROM progression_groups').all()).toEqual([
-      { slug: 'group-1', name: 'Group 1 — shared fingering', progression_order: 1 }
+    expect(
+      sqlite
+        .prepare('SELECT slug, name, progression_order FROM progression_groups')
+        .all()
+    ).toEqual([
+      {
+        slug: 'group-1',
+        name: 'Group 1 — shared fingering',
+        progression_order: 1
+      }
     ])
     expect(
       sqlite
-        .prepare('SELECT slug, display_name, tonic_pitch_class, position_in_group FROM scales')
+        .prepare(
+          'SELECT slug, display_name, tonic_pitch_class, position_in_group FROM scales'
+        )
         .all()
     ).toEqual([
-      { slug: 'c-major', display_name: 'C major', tonic_pitch_class: 0, position_in_group: 1 }
+      {
+        slug: 'c-major',
+        display_name: 'C major',
+        tonic_pitch_class: 0,
+        position_in_group: 1
+      }
     ])
     sqlite.close()
   })
@@ -113,7 +131,9 @@ describe('applyMigrations', () => {
       .prepare('SELECT id FROM scales WHERE slug = ?')
       .get('c-major') as { id: number }
     expect(
-      sqlite.prepare('SELECT id, scale_id, direction FROM exercises ORDER BY id').all()
+      sqlite
+        .prepare('SELECT id, scale_id, direction FROM exercises ORDER BY id')
+        .all()
     ).toEqual([
       { id: 1, scale_id: scale.id, direction: 'ascending' },
       { id: 2, scale_id: scale.id, direction: 'descending' }
@@ -124,6 +144,172 @@ describe('applyMigrations', () => {
     expect(sqlite.prepare('SELECT id FROM runs').all()).toEqual([{ id: 1 }])
     expect(sqlite.pragma('foreign_key_check')).toEqual([])
 
+    sqlite.close()
+  })
+
+  it('migration 0007 backfills existing runs as one note per beat and rejects an unsupported grid', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+
+    const target = '0007_runs_notes_per_beat.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    // A run recorded before the grid was configurable: it was played one
+    // note per beat, and re-scoring it later must keep reading it that way.
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+
+    expect(sqlite.prepare('SELECT id, notes_per_beat FROM runs').all()).toEqual(
+      [{ id: 1, notes_per_beat: 1 }]
+    )
+
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat) VALUES (2, 1, 2000, 80, 2)'
+      )
+      .run()
+    expect(() =>
+      sqlite
+        .prepare(
+          'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm, notes_per_beat) VALUES (3, 1, 3000, 80, 3)'
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    sqlite.close()
+  })
+
+  it('migration 0008 backfills existing exercises as one octave and widens the step and assessment bounds', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+
+    const target = '0008_two_octave_exercises.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    // The two one-octave exercises as they existed before the migration.
+    sqlite
+      .prepare(
+        "INSERT INTO exercises (id, scale_id, direction) VALUES (1, 1, 'ascending')"
+      )
+      .run()
+    sqlite
+      .prepare(
+        "INSERT INTO exercises (id, scale_id, direction) VALUES (2, 1, 'descending')"
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+
+    // Pre-existing exercises backfill truthfully to a single octave.
+    expect(
+      sqlite.prepare('SELECT id, octaves FROM exercises ORDER BY id').all()
+    ).toEqual([
+      { id: 1, octaves: 1 },
+      { id: 2, octaves: 1 }
+    ])
+
+    // A step_index of 14 inserts; 15 is rejected.
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 14, 'C', 0, 1)"
+        )
+        .run()
+    ).not.toThrow()
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'C', 0, 1)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    // A semitone_offset of 24 inserts; 25 is rejected.
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 0, 'C', 24, 1)"
+        )
+        .run()
+    ).not.toThrow()
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 0, 'C', 25, 1)"
+        )
+        .run()
+    ).toThrow(/CHECK constraint failed/)
+
+    // A timing window of 15 samples inserts; 16 is rejected.
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+    const insertAssessment = sqlite.prepare(
+      `INSERT INTO run_assessments (
+        run_id, algorithm_version, scoring_parameters, progression_policy_version,
+        progression_parameters, hard_fault_count, timing_fault_count,
+        overlap_fault_count, timing_sample_count, timing_excluded_count,
+        mean_absolute_timing_deviation_us, passed, assessed_at_ms
+      ) VALUES (1, 'v1', '{}', 'v1', '{}', 0, 0, 0, ?, 0, 0, 1, 1000)`
+    )
+    expect(() => insertAssessment.run(15)).not.toThrow()
+    expect(() => insertAssessment.run(16)).toThrow(/CHECK constraint failed/)
+
+    sqlite.close()
+  })
+
+  it('migration 0009 adds nullable start offset without changing stored assessments', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+    const target = '0009_best_fit_timing.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+    sqlite
+      .prepare(
+        `INSERT INTO run_assessments (
+          run_id, algorithm_version, scoring_parameters, progression_policy_version,
+          progression_parameters, hard_fault_count, timing_fault_count,
+          overlap_fault_count, timing_sample_count, timing_excluded_count,
+          mean_absolute_timing_deviation_us, passed, assessed_at_ms
+        ) VALUES (1, 'stage2', '{}', 'v1', '{}', 0, 0, 0, 1, 0, 0, 1, 1000)`
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+    expect(
+      sqlite
+        .prepare(
+          'SELECT mean_absolute_timing_deviation_us, timing_start_offset_us FROM run_assessments'
+        )
+        .get()
+    ).toEqual({
+      mean_absolute_timing_deviation_us: 0,
+      timing_start_offset_us: null
+    })
     sqlite.close()
   })
 
@@ -157,13 +343,17 @@ describe('applyMigrations', () => {
 
     expect(() =>
       sqlite
-        .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)')
+        .prepare(
+          'INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)'
+        )
         .run(scale.id, 'descending')
     ).not.toThrow()
 
     expect(() =>
       sqlite
-        .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (2, ?, ?)')
+        .prepare(
+          'INSERT INTO exercises (id, scale_id, direction) VALUES (2, ?, ?)'
+        )
         .run(scale.id, 'sideways')
     ).toThrow(/CHECK constraint failed/)
 
@@ -177,7 +367,9 @@ describe('applyMigrations', () => {
       .prepare('SELECT id FROM scales WHERE slug = ?')
       .get('c-major') as { id: number }
     sqlite
-      .prepare('INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)')
+      .prepare(
+        'INSERT INTO exercises (id, scale_id, direction) VALUES (1, ?, ?)'
+      )
       .run(scale.id, 'descending')
 
     // C major descending, anchored on the upper C: C B A G F E D C
@@ -198,17 +390,19 @@ describe('applyMigrations', () => {
         .all()
     ).toEqual(descendingOffsets.map((semitone_offset) => ({ semitone_offset })))
 
+    // 0008 widened the valid range to step_index 0..14 and offset -24..24,
+    // so the old out-of-range values are now legal; test the new bounds.
     expect(() =>
       sqlite
         .prepare(
-          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', -13, 1)"
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'Y', -25, 1)"
         )
         .run()
     ).toThrow(/CHECK constraint failed/)
     expect(() =>
       sqlite
         .prepare(
-          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 8, 'Y', 13, 1)"
+          "INSERT INTO exercise_steps (exercise_id, step_index, note_spelling, semitone_offset, finger_number) VALUES (1, 15, 'Y', 25, 1)"
         )
         .run()
     ).toThrow(/CHECK constraint failed/)

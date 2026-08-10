@@ -9,7 +9,16 @@ export type AssessmentStep = {
   timingDeviationUs: number | null
   timingExcluded: boolean
   timingFault: boolean
+  overlapDurationUs: number | null
+  overlapReleaseMissing: boolean
   overlapFault: boolean
+}
+
+export type ScoringParameters = {
+  timingToleranceNoteFraction: number
+  overlapToleranceUs: number
+  maxTimingFaultsPerRun: number
+  recoveryWindowSteps: number
 }
 
 export type AssessmentFault = {
@@ -26,6 +35,9 @@ export type SubmitRunResponse = {
     tempoBpm: number
   }
   originalAssessment: {
+    scoringParameters: ScoringParameters
+    // `timingToleranceNoteFraction` resolved against this run's tempo.
+    timingToleranceUs: number
     steps: AssessmentStep[]
     faults: AssessmentFault[]
     summary: {
@@ -35,6 +47,7 @@ export type SubmitRunResponse = {
       timingSampleCount: number
       timingExcludedCount: number
       meanAbsoluteTimingDeviationUs: number | null
+      timingStartOffsetUs: number | null
       passed: boolean
     }
   }
@@ -58,6 +71,7 @@ export type RunHistoryEntry = {
     timingSampleCount: number
     timingExcludedCount: number
     meanAbsoluteTimingDeviationUs: number | null
+    timingStartOffsetUs: number | null
     passed: boolean
   }
 }
@@ -110,12 +124,14 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 export async function submitRun(
-  payload: SubmitRun
+  payload: SubmitRun,
+  signal?: AbortSignal
 ): Promise<SubmitRunResponse> {
   const response = await fetch('/api/runs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal
   })
   const data = await response.json()
   if (!response.ok)

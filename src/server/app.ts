@@ -32,7 +32,7 @@ export function buildApp(
     })
   })
 
-  registerExerciseRoutes(app, sqlite)
+  registerExerciseRoutes(app, sqlite, config)
   registerRunRoutes(app, sqlite, config)
 
   const clientRoot = path.resolve(
