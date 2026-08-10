@@ -389,7 +389,7 @@ span.thumb::after {
 }
 /* End-of-round result: one row per expected note, in playing order. The
    three failure modes get their own columns because they fail
-   independently (SPEC.md: timing and overlap do not correlate). */
+   independently (docs/SPEC.md: timing and overlap do not correlate). */
 .run-result {
   border-top: 1px solid var(--border);
   margin-top: 24px;

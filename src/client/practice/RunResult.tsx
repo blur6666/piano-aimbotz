@@ -62,7 +62,7 @@ function OverlapValue({ cell }: { cell: OverlapCell }) {
 
 // End-of-round result: one row per expected note, in playing order, with the
 // three things a scale run can go wrong in kept in separate columns because
-// they fail independently (SPEC.md: timing and overlap do not correlate).
+// they fail independently (docs/SPEC.md: timing and overlap do not correlate).
 export function RunResult(props: RunResultProps) {
   const rows = buildRunResultRows({
     exerciseSteps: props.exerciseSteps,

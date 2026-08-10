@@ -1,5 +1,5 @@
 // Validates the complete seeded catalog and its provenance
-// (ARCHITECTURE.md, "Module ownership"). Pure: no Fastify, no database, no
+// (docs/ARCHITECTURE.md, "Module ownership"). Pure: no Fastify, no database, no
 // filesystem. The catalog data file (catalog/v1.ts) owns the types this
 // module validates against, so this module is the single source of truth
 // for "what shape must catalog data be."
@@ -37,7 +37,7 @@ export type Catalog = {
   groups: readonly CatalogGroup[]
 }
 
-// SPEC.md's three fingering groups, in progression order, with the scale
+// docs/SPEC.md's three fingering groups, in progression order, with the scale
 // count each must contain (Group 1: C, G, D, A, E, B; Group 2: F; Group 3:
 // the five black-key scales).
 const EXPECTED_GROUPS = [

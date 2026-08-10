@@ -6,7 +6,7 @@ export type AppConfig = {
   progression: ProgressionPolicy
   seedInitialTempoBpm: number
   // Applied to every new run and stored on the run row. Not a per-exercise
-  // column: every exercise currently uses the same grid, and SPEC.md says
+  // column: every exercise currently uses the same grid, and docs/SPEC.md says
   // to pick the simple thing where a simple and a general one both work.
   // Promote it to a column when an exercise genuinely needs a different
   // grid from its neighbours.

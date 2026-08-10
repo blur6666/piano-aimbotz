@@ -32,7 +32,7 @@ export type RunExerciseOptions = {
   // Practice mode (BACKLOG.md "unlocked bpm ... for a while when we
   // test"): runs the metronome/capture/timeline exactly as normal, but
   // never calls POST /api/runs. The server's tempo lock is an
-  // ARCHITECTURE.md invariant ("a run submitted at any other tempo is
+  // docs/ARCHITECTURE.md invariant ("a run submitted at any other tempo is
   // rejected") -- this respects it by never submitting an off-tempo run
   // at all, rather than bypassing the check. `exercise.tempoBpm` can
   // freely differ from the server's currentTempoBpm in this mode; nothing
@@ -66,7 +66,7 @@ export function runExercise(
   options: RunExerciseOptions = {}
 ): Promise<RunOutcome | null> {
   const countInBeats = 4
-  // The click stays on the beat (SPEC.md), so eight notes at two per beat
+  // The click stays on the beat (docs/SPEC.md), so eight notes at two per beat
   // occupy four scale beats, not eight.
   // Math.ceil because an odd step count at two notes per beat lands the final
   // onset mid-beat: 15 eighths span 7.5 beats, and the loop that schedules

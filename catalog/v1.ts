@@ -1,7 +1,7 @@
 // Versioned catalog data: 3 progression groups, 12 physical major scales,
 // 38 exercises -- ascending + descending at one octave (8 steps) for every
 // scale, plus two octaves (15 steps) for the seven scales with sourced
-// two-octave fingering (Group 1 and F). Right hand only, per SPEC.md.
+// two-octave fingering (Group 1 and F). Right hand only, per docs/SPEC.md.
 //
 // Practice order minimises how many physical patterns must be memorised:
 // Group 1 (C, G, D, A, E, B) shares one right-hand shape; Group 2 is F,

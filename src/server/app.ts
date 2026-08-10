@@ -14,7 +14,7 @@ export function buildApp(
 ): FastifyInstance {
   const app = Fastify({ logger: false })
 
-  // All API errors use one envelope (ARCHITECTURE.md). Routes that already
+  // All API errors use one envelope (docs/ARCHITECTURE.md). Routes that already
   // know their status code (404/409/400 for bad sequence numbers, etc.)
   // send it directly; this is the catch-all for TypeBox validation
   // failures and anything else thrown unexpectedly. Non-validation errors

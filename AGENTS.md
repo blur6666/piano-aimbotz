@@ -1,6 +1,6 @@
 # Agent and contributor guide
 
-`SPEC.md` (product intent) and `ARCHITECTURE.md` (decisions, invariants) are
+`docs/SPEC.md` (product intent) and `docs/ARCHITECTURE.md` (decisions, invariants) are
 the sources of truth — read them before changing behavior. This file is
 operational only. Open work lives in `docs/BACKLOG.md`.
 
@@ -69,7 +69,7 @@ for a repo-wide `prettier --write` — it buries the cause in a whole-file diff.
 
 ## Invariants
 
-Full list: `ARCHITECTURE.md` → "Invariants that must not be rediscovered".
+Full list: `docs/ARCHITECTURE.md` → "Invariants that must not be rediscovered".
 Read it before touching scoring, progression, or the schema. Easiest to
 violate by accident:
 

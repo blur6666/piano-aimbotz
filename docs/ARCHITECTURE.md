@@ -690,8 +690,6 @@ This list returns stored original aggregates only. `GET /api/runs/:id` is the ex
 
 ```text
 /
-  ARCHITECTURE.md
-  SPEC.md
   .node-version
   package.json
   package-lock.json
@@ -702,6 +700,8 @@ This list returns stored original aggregates only. `GET /api/runs/:id` is the ex
   catalog/
     v1.ts
   docs/
+    ARCHITECTURE.md
+    SPEC.md
     major-minor-fingering.md
   src/
     shared/

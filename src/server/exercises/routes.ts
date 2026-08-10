@@ -43,7 +43,7 @@ export function registerExerciseRoutes(
       })
 
     // Every seeded exercise gets a progress row in the same transaction
-    // (ARCHITECTURE.md); a missing one is a genuine data-integrity bug,
+    // (docs/ARCHITECTURE.md); a missing one is a genuine data-integrity bug,
     // not a "not seeded yet" state to hide.
     const missingProgress = sqlite
       .prepare(

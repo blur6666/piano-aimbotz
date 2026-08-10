@@ -1,5 +1,5 @@
 -- Migration 0001 constrained semitone_offset to 0..12, which only fits
--- ascending exercises. ARCHITECTURE.md specifies -12..12 so a descending
+-- ascending exercises. docs/ARCHITECTURE.md specifies -12..12 so a descending
 -- exercise's step 7 (offset -12) is storable. Migration 0004 widened
 -- exercises.direction to accept 'descending' but missed this column,
 -- which would have failed a descending seed mid-insert with a CHECK error.
