@@ -58,6 +58,8 @@ There is no separate "mvp" tier below v1. v1 is deliberately small and its thres
 
 **Done when:** every right-hand major scale can be played ascending and descending against the metronome, a completed run is captured and scored end to end, three consecutive clean runs raise that exercise's tempo, raw events are stored so old runs can be re-scored, and the schema/migrations/domain tests/CI listed under "Limitations" actually exist.
 
+Most of that is already true — v1 is largely built. This is the acceptance bar, not a to-do list; don't open work to "implement v1".
+
 #### Goal
 
 Practise the right-hand major scales against a metronome and get a measured verdict on every run. Every implemented scale is selectable from the start — v1 recommends the next one but never locks any of them (see "Product vision"). Scored runs happen at the tempo the server holds for that exercise, and three consecutive clean runs raise it.
@@ -80,16 +82,17 @@ Practise the right-hand major scales against a metronome and get a measured verd
 - **Fixed tempo per run.**
   - Tempo that varies *within* a run is wanted later. Free tempo for scored runs, never — see the goal above.
 - **Display both the scale and the fingering** during the run.
-- **Optional auto-repeat:** runs can chain one after another, each separated by a count-in.
+- **Optional auto-repeat:** runs chaining one after another, each separated by a count-in. **Wanted, not built** — it is deliberately absent from the "done when" bar above and does not block v1.
 - **Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table).
   - Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice.
   - A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
+  - The note and finger cells in "Progression order" below are illustrative. **Where they and the reference disagree, the reference wins.**
 
 #### Progression order
 
 Scales are ordered the way piano lessons order them: by **fingering pattern**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, and to meet them in a useful order — fewer new shapes per scale means faster progress and less discouragement. C major is the first scale a player sees.
 
-This order drives the recommendation and the presentation order only. It is not a lock (see "Product vision").
+This order drives the recommendation and the presentation order only. It is not a lock (see "Product vision"). This section owns the order and the reason for it; the notes and fingerings themselves belong to `docs/SCALES_FINGERING_REFERENCE.md`.
 
 **Group 1 — shared fingering: C, G, D, A, E, B.**
 
@@ -133,15 +136,15 @@ This order drives the recommendation and the presentation order only. It is not 
 - E♭ and A♭ start on finger 3.
 - Five separate memorisations, made easier by hand position rather than by a common shape.
 
-Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". The progression logic should know that the boundary between them changes what advancement means.
+Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". **In v1 that difference is presentational only.** Advancement is per exercise (see "Advancement rule"); crossing a group boundary changes nothing mechanically, it only changes what the app has to say to the player — the next scale in Group 1 is a shape they already own transposed, while the first scale in Group 3 is a new one to memorise. There is no cross-group advancement rule in v1 and none is implied here; don't invent one.
 
-**F♯ and G♭ are one entry, not two.** Identical keys, identical fingering. Fingering is physical; the spelling difference is notational only. They are enharmonic.
+**F♯ and G♭ are one entry, not two.** Identical keys, identical fingering. Fingering is physical; the spelling difference is notational only. They are enharmonic. Twelve entries total.
 
 #### Advancement rule
 
-Tempo is the progression axis; accuracy is the gate. Start low (around 60bpm) and climb. Advance when the player achieves **three consecutive runs with zero hard faults and soft faults under a threshold**. The exact numbers are unknowable without real data — they get tuned once sessions exist (see "Out of scope"). This design cannot be gamed by slowing down, because slowing down is the failure state rather than a way to pass.
+Tempo is the progression axis; accuracy is the gate. Start low (e.g. around 60bpm — the real value is a deferred constant, see "Out of scope") and climb. Advance when the player achieves **three consecutive runs with zero hard faults and soft faults under a threshold**. The exact numbers are unknowable without real data — they get tuned once sessions exist (see "Out of scope"). This design cannot be gamed by slowing down, because slowing down is the failure state rather than a way to pass.
 
-Advancing to the *next scale* is a recommendation the app surfaces, not a gate (see "Product vision").
+Advancing to the *next scale* is a recommendation the app surfaces, not a gate (see "Product vision"). In v1 that recommendation **is the ordering itself**: exercises are presented in progression order, and the one to be working on is the first that isn't clean yet. A distinct affordance for it — a badge, a pinned entry, explicit copy — is **not built**. That is the one genuine product hole inside an otherwise decided v1, and it is named here rather than left to be discovered.
 
 Mastered scales reappearing in rotation once other scales are learned is optional, not v1.
 
@@ -158,7 +161,7 @@ Mastered scales reappearing in rotation once other scales are learned is optiona
 - A note played out of order (wrong key, missed accidental).
 - An extra note. Includes duplicates and glancing an adjacent key. If this proves too aggressive in practice, add a debounce later rather than softening the rule now (see "Out of scope").
 
-**Soft fault, type 1 — timing:** deviation in milliseconds from the expected beat. Accumulates into an accuracy figure rather than passing or failing.
+**Soft fault, type 1 — timing:** deviation in milliseconds from the expected beat. Each note's deviation is *graded*, not passed or failed — one late note never fails a run by itself. What gates a clean run is the **count** of notes outside tolerance (see "Advancement rule").
 
 **Soft fault, type 2 — overlap:** the previous note hasn't been released before the next sounds. Legato bleed. This is one of the most common scale technique problems and it does *not* correlate with timing, so it's worth capturing separately. Requires storing note-off as well as note-on.
 
@@ -166,11 +169,11 @@ Mastered scales reappearing in rotation once other scales are learned is optiona
 
 #### Velocity
 
-Possibly ignored entirely in v1. No accent-on-the-downbeat expectations. If used at all, only flag notes that are very far off, and only after finding a sane calibration. Not a v1 blocker.
+**Captured, stored, and ignored by v1 scoring.** No accent-on-the-downbeat expectations, no dynamics gate, no accent logic — velocity changes no v1 result. It is stored anyway because later analysis may want it. Scoring it at all needs a sane calibration first, and that is a v2 decision, not something to add opportunistically.
 
 #### Output shape
 
-Per scale, per direction, per step: the number of hard and soft faults.
+Per scale, per direction, per step: the number of hard and soft faults. That is the *product grain* — what the player is entitled to see about a run. The wire and storage shapes (run aggregates, streak, tempo after the run) live in `ARCHITECTURE.md` and are the authority; do not derive a second DTO from this paragraph.
 
 Notes and fingering are **fixed per scale**, so within a single scale, step index and finger number carry the same information. Storing the finger only matters if you later want to ask cross-scale questions — position 4 is finger 1 in C major but finger 4 in F major.
 
@@ -182,7 +185,7 @@ This also settles the raw-versus-aggregate question generally: keep raw events s
 
 The realized schema lives in `ARCHITECTURE.md` and is the authority — this section states the storage philosophy behind it, not the table layout.
 
-### v2 — beyond the sandbox
+### v2 — direction
 
 Direction only. Nothing here is designed, and none of it may be implemented until it has been specified above.
 

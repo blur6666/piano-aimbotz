@@ -394,7 +394,7 @@ type ExerciseListResponse = {
 };
 ```
 
-The response order is authoritative progression order. The user may select any exercise; there is no server-side unlock state. Every scored run uses the supplied `currentTempoBpm`; the browser offers no arbitrary tempo control for a run it will submit. The client's practice mode (`SPEC.md`, "Goal") may play an exercise at any tempo, but it never calls `POST /api/runs`, so it neither reaches this contract nor touches progress.
+The response order is authoritative progression order. The user may select any exercise; there is no server-side unlock state. Every scored run uses the supplied `currentTempoBpm`; the browser offers no arbitrary tempo control for a run it will submit. The client's practice mode (`SPEC.md`, "Goal"; the "Practice tempo (not scored)" control) may play an exercise at any tempo, but it never calls `POST /api/runs`, so it neither reaches this contract nor touches progress.
 
 ### Submission contract
 
