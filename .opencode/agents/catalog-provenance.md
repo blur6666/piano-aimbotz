@@ -1,6 +1,6 @@
 ---
 description: Verifies catalog fingerings against the reference; never invents them
-mode: primary
+mode: all
 model: opencode-go/deepseek-v4-flash
 temperature: 0
 permission:

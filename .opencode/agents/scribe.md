@@ -1,6 +1,6 @@
 ---
 description: Repairs drift between the docs and the code
-mode: primary
+mode: all
 model: opencode-go/minimax-m3
 temperature: 0.2
 permission:

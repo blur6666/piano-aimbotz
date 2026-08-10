@@ -1,6 +1,6 @@
 ---
 description: Audits a change against docs/ARCHITECTURE.md invariants and docs/SPEC.md scope
-mode: primary
+mode: all
 model: opencode-go/deepseek-v4-pro
 temperature: 0.1
 permission:

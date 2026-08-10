@@ -1,6 +1,6 @@
 ---
 description: Runs the six required checks and fixes only mechanical failures
-mode: primary
+mode: all
 model: opencode-go/deepseek-v4-flash
 temperature: 0.1
 permission:
