@@ -237,6 +237,7 @@ The browser normalizes MIDI note-on messages with velocity zero into `note_off`.
 | `timing_sample_count` | `INTEGER` | Not null, check non-negative |
 | `timing_excluded_count` | `INTEGER` | Not null, check non-negative |
 | `mean_absolute_timing_deviation_us` | `INTEGER` | Nullable, otherwise check non-negative |
+| `timing_start_offset_us` | `INTEGER` | Nullable fitted intercept in microseconds; reported, never a fault on its own |
 | `passed` | `INTEGER` | Not null, check in 0, 1 |
 | `assessed_at_ms` | `INTEGER` | Not null, check non-negative |
 
@@ -534,6 +535,7 @@ type Assessment = {
     timingSampleCount: number;
     timingExcludedCount: number;
     meanAbsoluteTimingDeviationUs: number | null;
+    timingStartOffsetUs: number | null;
     passed: boolean;
   };
 };
@@ -564,10 +566,10 @@ For every later note-on:
 2. If it repeats the most recently matched pitch, record a `duplicate` hard fault attributed to the current expected step and do not advance. This prevents a repeated tonic near the start from being mistaken for the octave endpoint.
 3. Otherwise, if it equals the nearest later unmatched expected pitch, mark each skipped step with one `missed` hard fault, match the played note to that later step, and continue after it.
 4. Otherwise, record an `extra` hard fault attributed to the current expected step and do not advance.
-5. After step 7 is matched, every further note-on in the capture window is an `extra` hard fault attributed to step 7.
+5. After the final step is matched, every further note-on in the capture window is an `extra` hard fault attributed to that final step.
 6. At the end of the capture window, every unmatched expected step is a `missed` hard fault attributed to itself.
 
-`StepAssessment.hardFaultCount` is the count of hard faults attributed to that step. The aggregate hard-fault count is the sum of all eight step counts, so post-completion extras are not a hidden global exception to per-step output.
+`StepAssessment.hardFaultCount` is the count of hard faults attributed to that step. The aggregate hard-fault count is the sum of every step count, so post-completion extras are not a hidden global exception to per-step output.
 
 This greedy ordered matcher was chosen over matching by nearest beat. Beat-slot matching can turn one sufficiently late note into a different expected step, which contaminates the timing measurement with the matching heuristic. Keeping the cursor forever on a missed step was rejected because it would make every following correct note fail and would contradict the requirement to continue after a stumble.
 
@@ -577,11 +579,11 @@ Expected step `i` occurs at the integer microsecond offset:
 
 `Math.round(i * 60,000,000 / tempoBpm)` from the first expected beat.
 
-Timing deviation is played note-on offset minus expected offset. One note occurs per metronome beat. The scorer uses absolute deviation for aggregate accuracy.
+Timing is measured against a least-squares line fitted to each run's non-excluded matched notes. A step's timing deviation is its residual from that line, so the metric measures note-to-note evenness rather than a constant device or adaptation offset. The fitted intercept at the first expected beat is returned as `timingStartOffsetUs` for feedback, but never faults a run. One note occurs per metronome beat.
 
 After any hard fault, the configured number of subsequently matched notes is excluded from timing fault counts, timing sample counts, and the mean. A note that resynchronizes after marking skipped steps is the first excluded note. A later hard fault restarts the exclusion window. Excluded deviations may still be returned for display, marked as excluded.
 
-A non-excluded matched note is a timing fault when its absolute deviation is strictly greater than the configured tolerance; equality is not a fault. The mean is `Math.round(sum(abs(deviation)) / timingSampleCount)` and is null when there are no included samples. No tolerance value is selected here.
+A non-excluded matched note is a timing fault when its absolute residual is strictly greater than the configured tolerance; equality is not a fault. The mean absolute residual is `Math.round(sum(abs(deviation)) / timingSampleCount)` and is null when there are no included samples. No tolerance value is selected here.
 
 ### Overlap
 

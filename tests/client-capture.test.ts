@@ -154,6 +154,7 @@ describe('runExercise submission', () => {
         timingSampleCount: 8,
         timingExcludedCount: 0,
         meanAbsoluteTimingDeviationUs: 0,
+        timingStartOffsetUs: 0,
         passed: true
       }
     },

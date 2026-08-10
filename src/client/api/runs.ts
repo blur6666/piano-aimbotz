@@ -47,6 +47,7 @@ export type SubmitRunResponse = {
       timingSampleCount: number
       timingExcludedCount: number
       meanAbsoluteTimingDeviationUs: number | null
+      timingStartOffsetUs: number | null
       passed: boolean
     }
   }
@@ -70,6 +71,7 @@ export type RunHistoryEntry = {
     timingSampleCount: number
     timingExcludedCount: number
     meanAbsoluteTimingDeviationUs: number | null
+    timingStartOffsetUs: number | null
     passed: boolean
   }
 }

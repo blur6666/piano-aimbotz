@@ -59,7 +59,7 @@ export function backfillMissingAssessments(
   const backfilledRunIds: number[] = []
 
   const insertAssessment = sqlite.prepare(
-    'INSERT INTO run_assessments (run_id, algorithm_version, scoring_parameters, progression_policy_version, progression_parameters, hard_fault_count, timing_fault_count, overlap_fault_count, timing_sample_count, timing_excluded_count, mean_absolute_timing_deviation_us, passed, assessed_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO run_assessments (run_id, algorithm_version, scoring_parameters, progression_policy_version, progression_parameters, hard_fault_count, timing_fault_count, overlap_fault_count, timing_sample_count, timing_excluded_count, mean_absolute_timing_deviation_us, timing_start_offset_us, passed, assessed_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   )
 
   for (const run of missing) {
@@ -121,6 +121,7 @@ export function backfillMissingAssessments(
       summary.timingSampleCount,
       summary.timingExcludedCount,
       summary.meanAbsoluteTimingDeviationUs,
+      summary.timingStartOffsetUs,
       summary.passed ? 1 : 0,
       Date.now()
     )

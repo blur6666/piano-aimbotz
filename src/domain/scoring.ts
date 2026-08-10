@@ -84,6 +84,9 @@ export type Assessment = {
     timingSampleCount: number
     timingExcludedCount: number
     meanAbsoluteTimingDeviationUs: number | null
+    // The fitted line's intercept against the metronome grid. It is reported
+    // separately from residual unevenness and does not itself cause a fault.
+    timingStartOffsetUs: number | null
     passed: boolean
   }
 }
@@ -231,6 +234,44 @@ export function scoreRun(input: ScoreRunInput): Assessment {
     addFault({ type: 'missed', stepIndex: index, eventSequenceNumber: null })
   }
 
+  // Fit the player's own line using only samples that will count toward timing.
+  // Recovery samples follow a hard fault and must not distort the reference for
+  // the rest of the run. With one sample there is no slope to fit, so preserve
+  // the nominal slope and report that note's offset as the intercept.
+  const timingMatches = matchedEvents.filter(
+    (match) => !steps[match.stepIndex].timingExcluded
+  )
+  const fit = timingMatches.reduce(
+    (total, match) => {
+      const expected = steps[match.stepIndex].expectedOffsetUs
+      total.expected += expected
+      total.actual += match.event.offsetUs
+      return total
+    },
+    { expected: 0, actual: 0 }
+  )
+  const meanExpected =
+    timingMatches.length === 0 ? 0 : fit.expected / timingMatches.length
+  const meanActual =
+    timingMatches.length === 0 ? 0 : fit.actual / timingMatches.length
+  const covariance = timingMatches.reduce(
+    (total, match) =>
+      total +
+      (steps[match.stepIndex].expectedOffsetUs - meanExpected) *
+        (match.event.offsetUs - meanActual),
+    0
+  )
+  const variance = timingMatches.reduce(
+    (total, match) =>
+      total + (steps[match.stepIndex].expectedOffsetUs - meanExpected) ** 2,
+    0
+  )
+  const fittedSlope = variance === 0 ? 1 : covariance / variance
+  const timingStartOffsetUs =
+    timingMatches.length === 0
+      ? null
+      : Math.round(meanActual - fittedSlope * meanExpected)
+
   let timingSampleCount = 0
   let timingExcludedCount = 0
   let timingFaultCount = 0
@@ -240,7 +281,13 @@ export function scoreRun(input: ScoreRunInput): Assessment {
   for (let index = 0; index < matchedEvents.length; index += 1) {
     const match = matchedEvents[index]
     const assessment = steps[match.stepIndex]
-    const deviation = match.event.offsetUs - assessment.expectedOffsetUs
+    const deviation =
+      timingStartOffsetUs === null
+        ? 0
+        : Math.round(
+            match.event.offsetUs -
+              (timingStartOffsetUs + fittedSlope * assessment.expectedOffsetUs)
+          )
     assessment.timingDeviationUs = deviation
     if (assessment.timingExcluded) {
       timingExcludedCount += 1
@@ -288,6 +335,7 @@ export function scoreRun(input: ScoreRunInput): Assessment {
         timingSampleCount === 0
           ? null
           : Math.round(timingDeviationTotal / timingSampleCount),
+      timingStartOffsetUs,
       // Overlap is measured and reported per step but deliberately does not
       // gate: SPEC.md wants legato bleed captured separately, and no
       // defensible tolerance exists yet. Gating on it with the old zero

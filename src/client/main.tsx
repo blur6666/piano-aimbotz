@@ -508,6 +508,9 @@ function App() {
             timingFaultCount={
               outcome.response.originalAssessment.summary.timingFaultCount
             }
+            timingStartOffsetUs={
+              outcome.response.originalAssessment.summary.timingStartOffsetUs
+            }
             passed={outcome.response.originalAssessment.summary.passed}
           />
         )}
@@ -525,7 +528,8 @@ function App() {
                 <th>Hard</th>
                 <th>Timing</th>
                 <th>Overlap</th>
-                <th>Mean deviation</th>
+                <th>Mean unevenness</th>
+                <th>Start offset</th>
                 <th>Result</th>
               </tr>
             </thead>
@@ -538,6 +542,11 @@ function App() {
                 >
                   <td>
                     {new Date(entry.firstExpectedBeatAtMs).toLocaleString()}
+                  </td>
+                  <td>
+                    {formatDeviation(
+                      entry.originalAssessment.timingStartOffsetUs
+                    )}
                   </td>
                   <td>{entry.tempoBpm} BPM</td>
                   <td>{entry.originalAssessment.hardFaultCount}</td>

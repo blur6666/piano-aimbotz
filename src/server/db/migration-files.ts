@@ -6,5 +6,6 @@ export const MIGRATION_FILES = [
   '0005_exercise_steps_offset_range.sql',
   '0006_progression_catalog.sql',
   '0007_runs_notes_per_beat.sql',
-  '0008_two_octave_exercises.sql'
+  '0008_two_octave_exercises.sql',
+  '0009_best_fit_timing.sql'
 ]

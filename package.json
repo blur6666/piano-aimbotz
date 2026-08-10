@@ -17,6 +17,7 @@
     "report:charts": "node scripts/render-report-charts.mjs",
     "report:html": "node scripts/export-report-html.mjs",
     "rebuild-progress": "tsx --env-file-if-exists=.env src/server/progress/rebuild.ts",
+    "rescore-assessments": "tsx --env-file-if-exists=.env src/server/db/rescore-assessments.ts",
     "backfill-assessments": "tsx --env-file-if-exists=.env src/server/db/backfill-assessments.ts",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,ts,html}\" \".github/**/*.yml\"",
     "lint": "eslint .",

@@ -336,21 +336,50 @@ describe('equal-offset tie-break', () => {
 
 describe('timing deviation boundaries', () => {
   it('does not fault a deviation exactly at tolerance, and faults one microsecond over', () => {
-    const assessment = score(
+    const atTolerance = score(
       [
-        { type: 'note_on', midiPitch: 60, offsetUs: 0 }, // C, on time
-        { type: 'note_on', midiPitch: 62, offsetUs: 1_050_000 }, // D, +50,000us
-        { type: 'note_on', midiPitch: 64, offsetUs: 2_050_001 } // E, +50,001us
+        { type: 'note_on', midiPitch: 60, offsetUs: 0 },
+        // The fit leaves D +50ms from the player's own line.
+        { type: 'note_on', midiPitch: 62, offsetUs: 1_075_000 },
+        { type: 'note_on', midiPitch: 64, offsetUs: 2_000_000 }
       ],
       // 5% of the 1,000,000us beat at 60bpm.
       { timingToleranceNoteFraction: 0.05 }
     )
 
-    expect(assessment.steps[1].timingDeviationUs).toBe(50_000)
-    expect(assessment.steps[1].timingFault).toBe(false)
-    expect(assessment.steps[2].timingDeviationUs).toBe(50_001)
-    expect(assessment.steps[2].timingFault).toBe(true)
-    expect(assessment.summary.timingFaultCount).toBe(1)
+    expect(atTolerance.steps[1].timingDeviationUs).toBe(50_000)
+    expect(atTolerance.steps[1].timingFault).toBe(false)
+
+    const overTolerance = score(
+      [
+        { type: 'note_on', midiPitch: 60, offsetUs: 0 },
+        { type: 'note_on', midiPitch: 62, offsetUs: 1_075_002 },
+        { type: 'note_on', midiPitch: 64, offsetUs: 2_000_000 }
+      ],
+      { timingToleranceNoteFraction: 0.05 }
+    )
+    expect(overTolerance.steps[1].timingDeviationUs).toBe(50_001)
+    expect(overTolerance.steps[1].timingFault).toBe(true)
+    expect(overTolerance.summary.timingFaultCount).toBe(1)
+  })
+})
+
+describe('best-fit timing reference', () => {
+  it('reports consistent start lag separately and faults only uneven residuals', () => {
+    const assessment = score(
+      cMajor.map((midiPitch, index) => ({
+        type: 'note_on' as const,
+        midiPitch,
+        // 80ms late with a 2% slower realised interval is still even.
+        offsetUs: 80_000 + index * 1_020_000
+      })),
+      { timingToleranceNoteFraction: 0.01, maxTimingFaultsPerRun: 0 }
+    )
+
+    expect(assessment.summary.timingStartOffsetUs).toBe(80_000)
+    expect(assessment.summary.meanAbsoluteTimingDeviationUs).toBe(0)
+    expect(assessment.summary.timingFaultCount).toBe(0)
+    expect(assessment.summary.passed).toBe(true)
   })
 })
 
@@ -478,17 +507,17 @@ describe('summary.passed against configured maxima', () => {
 
     const atMax = score(events, {
       timingToleranceNoteFraction: 0,
-      maxTimingFaultsPerRun: 2
+      maxTimingFaultsPerRun: 4
     })
-    expect(atMax.summary.timingFaultCount).toBe(2)
+    expect(atMax.summary.timingFaultCount).toBe(4)
     expect(atMax.summary.hardFaultCount).toBe(0)
     expect(atMax.summary.passed).toBe(true)
 
     const overMax = score(events, {
       timingToleranceNoteFraction: 0,
-      maxTimingFaultsPerRun: 1
+      maxTimingFaultsPerRun: 3
     })
-    expect(overMax.summary.timingFaultCount).toBe(2)
+    expect(overMax.summary.timingFaultCount).toBe(4)
     expect(overMax.summary.passed).toBe(false)
   })
 
@@ -532,7 +561,7 @@ describe('summary.passed against configured maxima', () => {
       timingToleranceNoteFraction: 0.1,
       maxTimingFaultsPerRun: 0
     }
-    // Second note played 60ms after its expected slot, whatever that slot is.
+    // A middle-note bump of 90ms leaves 60ms unevenness after line fitting.
     const at = (tempoBpm: number, notesPerBeat: number) => {
       const noteIntervalUs = 60_000_000 / (tempoBpm * notesPerBeat)
       return scoreRun({
@@ -552,7 +581,12 @@ describe('summary.passed against configured maxima', () => {
           {
             type: 'note_on' as const,
             midiPitch: 62,
-            offsetUs: noteIntervalUs + 60_000
+            offsetUs: noteIntervalUs + 90_000
+          },
+          {
+            type: 'note_on' as const,
+            midiPitch: 64,
+            offsetUs: noteIntervalUs * 2
           }
         ].map((event, sequenceNumber) => ({
           ...event,

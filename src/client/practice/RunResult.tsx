@@ -18,6 +18,7 @@ export type RunResultProps = {
   maxTimingFaultsPerRun: number
   hardFaultCount: number
   timingFaultCount: number
+  timingStartOffsetUs: number | null
   passed: boolean
 }
 
@@ -127,6 +128,11 @@ export function RunResult(props: RunResultProps) {
             ? 'No wrong notes, every note within '
             : `${verdict.reasons.join('; ')}. Needs no wrong notes and every note within `}
           {describeTimingRule(verdict)}.
+        </p>
+        <p className="verdict-note">
+          {props.timingStartOffsetUs === null
+            ? 'Start offset could not be fitted for this run.'
+            : `Start offset: ${signedMs(props.timingStartOffsetUs)}. It is shown separately and does not count against evenness.`}
         </p>
         <p className="verdict-note">
           Overlap is measured and shown above but does not decide the result.

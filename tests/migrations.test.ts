@@ -273,6 +273,46 @@ describe('applyMigrations', () => {
     sqlite.close()
   })
 
+  it('migration 0009 adds nullable start offset without changing stored assessments', () => {
+    const sqlite = new Database(':memory:')
+    sqlite.pragma('foreign_keys = OFF')
+    const target = '0009_best_fit_timing.sql'
+    for (const filename of MIGRATION_FILES.slice(
+      0,
+      MIGRATION_FILES.indexOf(target)
+    ))
+      sqlite.exec(readMigration(filename))
+
+    sqlite
+      .prepare(
+        'INSERT INTO runs (id, exercise_id, performed_at_ms, tempo_bpm) VALUES (1, 1, 1000, 60)'
+      )
+      .run()
+    sqlite
+      .prepare(
+        `INSERT INTO run_assessments (
+          run_id, algorithm_version, scoring_parameters, progression_policy_version,
+          progression_parameters, hard_fault_count, timing_fault_count,
+          overlap_fault_count, timing_sample_count, timing_excluded_count,
+          mean_absolute_timing_deviation_us, passed, assessed_at_ms
+        ) VALUES (1, 'stage2', '{}', 'v1', '{}', 0, 0, 0, 1, 0, 0, 1, 1000)`
+      )
+      .run()
+
+    sqlite.exec(readMigration(target))
+    expect(
+      sqlite
+        .prepare(
+          'SELECT mean_absolute_timing_deviation_us, timing_start_offset_us FROM run_assessments'
+        )
+        .get()
+    ).toEqual({
+      mean_absolute_timing_deviation_us: 0,
+      timing_start_offset_us: null
+    })
+    sqlite.close()
+  })
+
   it('scales enforces unique tonic_pitch_class and unique position within a group', () => {
     const sqlite = new Database(':memory:')
     applyMigrations(sqlite)
