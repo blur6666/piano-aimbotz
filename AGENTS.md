@@ -37,6 +37,28 @@ npm run build
 `.github/workflows/ci.yml` runs all of the above, plus migrate+seed against
 a temporary database.
 
+### Line endings
+
+`.gitattributes` pins the working tree to LF on every platform, so
+`format:check` sees the same bytes on Windows as CI does on ubuntu. If it
+ever fails on a pile of files you did not touch, and `git diff` shows
+nothing, suspect CRLF before reaching for `prettier --write` — a mass
+reformat buries the cause under a whole-file diff. Confirm with:
+
+```bash
+head -3 package.json | cat -A   # ^M$ means CRLF, plain $ means LF
+```
+
+A stale worktree is the usual reason: editing `.gitattributes` does not
+rewrite files git already considers up to date, so a checkout made before
+those rules landed keeps its CRLF. Commit or stash first, then refresh the
+tree once:
+
+```bash
+git rm --cached -r . > /dev/null
+git reset --hard                 # re-checkout, applying .gitattributes
+```
+
 ## Invariants worth restating
 
 The full list lives in `ARCHITECTURE.md`'s "Invariants that must not be
