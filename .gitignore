@@ -145,6 +145,11 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Scratch context the agent review workflows write for the agents to read
+# (.github/workflows/cr-*.yml): the PR comment thread and the triggering
+# command. Never committed.
+.cr/
+
 # Generated report exports. REPORT.md, charts/ and data/ are the committed
 # sources; the HTML is a shareable single-file artifact rebuilt on demand with
 # `npm run report:html`. Delete this line if you would rather commit it.

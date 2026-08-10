@@ -67,10 +67,39 @@ is LF). The usual cause is a worktree checked out before those rules landed;
 commit or stash, then `git rm --cached -r . && git reset --hard`. Do not reach
 for a repo-wide `prettier --write` — it buries the cause in a whole-file diff.
 
+## Agent review on pull requests
+
+`.github/workflows/cr-review.yml` and `cr-apply.yml` run three of the agents
+below on every PR. The shape is deliberate:
+
+```
+pull_request(opened|synchronize)
+  └─ review  → posts <!-- cr:review -->   (pr-reviewer, edit:deny)
+  └─ plan    → posts <!-- cr:plan -->     (pr-planner, edit:deny, needs: review)
+                    ⏸  a human reads the plan
+issue_comment "/oc apply R1,R3"
+  └─ apply   → commits to the PR branch   (pr-fixer)
+       └─ push → synchronize → round 2, up to MAX_ROUNDS
+```
+
+Nothing pushes code without your comment, which is what keeps the loop from
+running away. Reviewer and planner run on different model families on
+purpose — an agent grading its own findings agrees with itself. Override the
+fixer's model per invocation:
+`/oc apply R1 --model opencode-go/qwen3.8-max`.
+
+Setup, once: add an `OPENCODE_API_KEY` repository secret (the opencode-go key
+from `opencode auth login`) and install the OpenCode GitHub App. The app's
+installation token is what lets a fix commit re-trigger CI — pushes made with
+`GITHUB_TOKEN` do not fire workflows. Fork PRs are skipped: they get no
+secrets on `pull_request`.
+
 ## Agent roster
 
-`.opencode/agents/` holds seven scoped agents, each accountable to one
-written rule set. Run them with `opencode run --agent <name> "<task>"`.
+`.opencode/agents/` holds ten scoped agents, each accountable to one written
+rule set. The seven subagents are for local work — run them with
+`opencode run --agent <name> "<task>"`. The three `pr-*` agents are primary
+agents driven by the workflows above; they are not useful to invoke by hand.
 
 | Agent | Guards | Run it |
 | --- | --- | --- |
@@ -81,9 +110,12 @@ written rule set. Run them with `opencode run --agent <name> "<task>"`.
 | `catalog-provenance` | `catalog/v1.ts` fingering data and `docs/SCALES_FINGERING_REFERENCE.md` | Before any catalog edit lands |
 | `session-analyst` | Reads `piano.db` read-only, writes `reports/` | When tuning deferred thresholds |
 | `scribe` | Doc drift in `AGENTS.md`, `docs/` | After the code moves ahead of the docs |
+| `pr-reviewer` | Same rules as `invariant-auditor`, on a PR diff | CI, on every PR |
+| `pr-planner` | Turns findings into a FIX/WONTFIX menu | CI, after `pr-reviewer` |
+| `pr-fixer` | Applies only the ids you approved | CI, on `/oc apply` |
 
-`invariant-auditor` and `catalog-provenance` cannot edit files — they report,
-you apply.
+`invariant-auditor`, `catalog-provenance`, `pr-reviewer` and `pr-planner`
+cannot edit files — they report, you apply.
 
 Model choice per agent is recorded in each agent's frontmatter. Cheap tiers do
 mechanical work.
