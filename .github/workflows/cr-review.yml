@@ -72,6 +72,17 @@ jobs:
           # Full history so the agent can diff against the base branch.
           fetch-depth: 0
 
+      # The opencode github action pushes a synthetic commit to the local
+      # branch on completion (e.g. "Pass, clean, merge. No findings." for
+      # review jobs, or a diff for fix jobs). Without an identity, that
+      # commit fails with "Author identity unknown" and the actual review
+      # comment never gets posted -- the error replaces it. Use a no-reply
+      # identity so the action can complete.
+      - name: Set git identity
+        run: |
+          git config --global user.email "ci@piano-aimbotz.local"
+          git config --global user.name "piano-aimbotz-ci"
+
       - name: Review
         uses: anomalyco/opencode/github@latest
         env:
@@ -102,6 +113,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      # See review job -- the opencode action's completion commit needs
+      # a git identity to succeed.
+      - name: Set git identity
+        run: |
+          git config --global user.email "ci@piano-aimbotz.local"
+          git config --global user.name "piano-aimbotz-ci"
 
       - name: Dump the PR comment thread
         # Deterministic context beats trusting the agent to fetch it, and it
