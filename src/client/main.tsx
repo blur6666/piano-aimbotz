@@ -22,7 +22,7 @@ import {
 } from './practice/runExercise.js'
 import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
-import { Keyboard, OCTAVE_COUNT } from './practice/Keyboard.js'
+import { Keyboard } from './practice/Keyboard.js'
 import { resolveScaleKeys } from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
@@ -483,8 +483,9 @@ function App() {
             scaleKeys={resolveScaleKeys(
               exercise.steps,
               exercise.direction,
-              OCTAVE_COUNT
+              exercise.octaves
             )}
+            octaves={exercise.octaves}
           />
         )}
         {exercise && outcome && !running && (

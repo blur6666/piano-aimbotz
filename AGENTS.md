@@ -66,8 +66,9 @@ the database schema. A few that are easy to violate by accident:
 
 ## Known gaps / TODO
 
-**Full catalog: done.** All twelve scales (24 exercises) are seeded via
-`progression_groups`/`scales` tables (migration `0006`) and validated by
+**Full catalog: done.** All twelve scales (38 exercises: 24 one-octave plus
+14 two-octave for the seven sourced scales) are seeded via
+`progression_groups`/`scales` tables (migrations `0006`/`0008`) and validated by
 `src/domain/catalog` before insertion (`catalog/v1.ts`).
 `exercises.direction` accepts `'descending'` (migration `0004`),
 `exercise_steps.semitone_offset` accepts the full `-12..12` range a

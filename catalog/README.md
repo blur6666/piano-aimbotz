@@ -1,7 +1,8 @@
 # Catalog data
 
 `v1.ts` is the versioned catalog: 3 progression groups, 12 physical major
-scales, 24 exercises (ascending + descending per scale), right hand only.
+scales, 38 exercises (ascending + descending per scale, with two-octave
+variants for the seven scales whose fingering is sourced), right hand only.
 It is validated by `src/domain/catalog` before `npm run seed` inserts it.
 
 ## Provenance

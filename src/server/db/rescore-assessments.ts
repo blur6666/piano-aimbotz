@@ -50,7 +50,7 @@ export function rescoreAssessments(
      SET algorithm_version = ?, scoring_parameters = ?, hard_fault_count = ?,
          timing_fault_count = ?, overlap_fault_count = ?, timing_sample_count = ?,
          timing_excluded_count = ?, mean_absolute_timing_deviation_us = ?,
-         timing_start_offset_us = ?, passed = ?, assessed_at_ms = ?
+         timing_start_offset_us = ?, passed = ?
      WHERE run_id = ?`
   )
   const rescore = sqlite.transaction(() => {
@@ -100,7 +100,6 @@ export function rescoreAssessments(
         summary.meanAbsoluteTimingDeviationUs,
         summary.timingStartOffsetUs,
         summary.passed ? 1 : 0,
-        Date.now(),
         run.id
       )
       exerciseIds.add(run.exercise_id)

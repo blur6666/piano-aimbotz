@@ -20,60 +20,62 @@ const OCTAVE_BLACK_NOTES = [
   { note: 'A#', pitchClass: 10, afterWhiteIndex: 5 }
 ]
 
-export const OCTAVE_COUNT = 3
-
 const WHITE_KEYS_PER_OCTAVE = OCTAVE_WHITE_NOTES.length
-const WHITE_KEY_WIDTH_PERCENT = 100 / (OCTAVE_COUNT * WHITE_KEYS_PER_OCTAVE)
-
-const WHITE_KEYS = Array.from({ length: OCTAVE_COUNT }, (_, octave) =>
-  OCTAVE_WHITE_NOTES.map((key) => ({ ...key, octave }))
-).flat()
-
-const BLACK_KEYS = Array.from({ length: OCTAVE_COUNT }, (_, octave) =>
-  OCTAVE_BLACK_NOTES.map((key) => ({
-    ...key,
-    octave,
-    afterWhiteIndex: key.afterWhiteIndex + octave * WHITE_KEYS_PER_OCTAVE
-  }))
-).flat()
 
 // Horizontal centre of a key, in percent of the keyboard width. White keys
 // sit at the middle of their slot; black keys straddle the boundary between
 // two white keys, which is where the rendered black key is centred too.
-function keyCenterPercent(pitchClass: number, octave: number): number | null {
+function keyCenterPercent(
+  pitchClass: number,
+  octave: number,
+  whiteKeyWidthPercent: number
+): number | null {
   const whiteIndex = OCTAVE_WHITE_NOTES.findIndex(
     (key) => key.pitchClass === pitchClass
   )
   if (whiteIndex !== -1)
     return (
-      (octave * WHITE_KEYS_PER_OCTAVE + whiteIndex + 0.5) *
-      WHITE_KEY_WIDTH_PERCENT
+      (octave * WHITE_KEYS_PER_OCTAVE + whiteIndex + 0.5) * whiteKeyWidthPercent
     )
   const black = OCTAVE_BLACK_NOTES.find((key) => key.pitchClass === pitchClass)
   if (!black) return null
   return (
     (octave * WHITE_KEYS_PER_OCTAVE + black.afterWhiteIndex + 1) *
-    WHITE_KEY_WIDTH_PERCENT
+    whiteKeyWidthPercent
   )
 }
 
 export type KeyboardProps = {
   scaleKeys: readonly ScaleKey[]
+  // Span of the drawn keyboard, from the selected exercise's `octaves` (1 or
+  // 2), so a one-octave exercise renders one octave instead of a wide three.
+  octaves: number
 }
 
-// Two-octave reference keyboard showing the selected exercise on the keys it
-// actually uses, with each step's note and finger labelled beneath its own
-// key. Presentation only -- nothing here feeds scoring.
-export function Keyboard({ scaleKeys }: KeyboardProps) {
+// Reference keyboard showing the selected exercise on the keys it actually
+// uses, with each step's note and finger labelled beneath its own key.
+// Presentation only -- nothing here feeds scoring.
+export function Keyboard({ scaleKeys, octaves }: KeyboardProps) {
+  const whiteKeyWidthPercent = 100 / (octaves * WHITE_KEYS_PER_OCTAVE)
+  const whiteKeys = Array.from({ length: octaves }, (_, octave) =>
+    OCTAVE_WHITE_NOTES.map((key) => ({ ...key, octave }))
+  ).flat()
+  const blackKeys = Array.from({ length: octaves }, (_, octave) =>
+    OCTAVE_BLACK_NOTES.map((key) => ({
+      ...key,
+      octave,
+      afterWhiteIndex: key.afterWhiteIndex + octave * WHITE_KEYS_PER_OCTAVE
+    }))
+  ).flat()
   const highlighted = new Set(
     scaleKeys.map((key) => `${key.octave}:${key.pitchClass}`)
   )
-  const blackKeyWidthPercent = WHITE_KEY_WIDTH_PERCENT * 0.56
+  const blackKeyWidthPercent = whiteKeyWidthPercent * 0.56
   return (
     <div className="keyboard-figure">
       <div className="keyboard" aria-hidden="true">
         <div className="keyboard-white-keys">
-          {WHITE_KEYS.map((key) => (
+          {whiteKeys.map((key) => (
             <div
               key={`${key.note}${key.octave}`}
               className={
@@ -85,7 +87,7 @@ export function Keyboard({ scaleKeys }: KeyboardProps) {
             />
           ))}
         </div>
-        {BLACK_KEYS.map((key) => (
+        {blackKeys.map((key) => (
           <div
             key={`${key.note}${key.octave}`}
             className={
@@ -95,7 +97,7 @@ export function Keyboard({ scaleKeys }: KeyboardProps) {
                 : '')
             }
             style={{
-              left: `${(key.afterWhiteIndex + 1) * WHITE_KEY_WIDTH_PERCENT}%`,
+              left: `${(key.afterWhiteIndex + 1) * whiteKeyWidthPercent}%`,
               width: `${blackKeyWidthPercent}%`
             }}
           />
@@ -103,7 +105,11 @@ export function Keyboard({ scaleKeys }: KeyboardProps) {
       </div>
       <div className="keyboard-labels">
         {scaleKeys.map((key) => {
-          const center = keyCenterPercent(key.pitchClass, key.octave)
+          const center = keyCenterPercent(
+            key.pitchClass,
+            key.octave,
+            whiteKeyWidthPercent
+          )
           if (center === null) return null
           const isBlack = OCTAVE_BLACK_NOTES.some(
             (black) => black.pitchClass === key.pitchClass

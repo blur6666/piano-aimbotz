@@ -50,7 +50,9 @@ describe('rescoreAssessments', () => {
       }))
     })
     sqlite
-      .prepare("UPDATE run_assessments SET algorithm_version = 'stage2'")
+      .prepare(
+        "UPDATE run_assessments SET algorithm_version = 'stage2', assessed_at_ms = 12345"
+      )
       .run()
 
     expect(rescoreAssessments(sqlite, config)).toEqual([1])
@@ -66,6 +68,11 @@ describe('rescoreAssessments', () => {
       timing_start_offset_us: 80_000,
       passed: 1
     })
+    expect(
+      sqlite
+        .prepare('SELECT assessed_at_ms FROM run_assessments WHERE run_id = 1')
+        .get()
+    ).toEqual({ assessed_at_ms: 12345 })
     expect(
       sqlite
         .prepare(

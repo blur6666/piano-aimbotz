@@ -219,6 +219,31 @@ describe('runExercise submission', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('threads the abort signal into the submission fetch', async () => {
+    // Make fetch hang so the abort listener has a chance to fire before the
+    // submission response arrives. A real browser will cancel the request
+    // because the signal is passed through.
+    fetchMock.mockImplementationOnce(async () => new Promise(() => undefined))
+
+    const input = fakeInput()
+    const controller = new AbortController()
+    const runPromise = runExercise(
+      input,
+      { id: 7, tempoBpm: 60, notesPerBeat: 1, steps },
+      () => undefined,
+      { signal: controller.signal }
+    )
+
+    input.onmidimessage!(message(4000, 0x90, 60, 100))
+    await vi.advanceTimersByTimeAsync(13_000)
+    controller.abort()
+
+    await expect(runPromise).resolves.toBeNull()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.signal).toBe(controller.signal)
+  })
+
   it('does not start a run that is aborted before it begins', async () => {
     const runPromise = runExercise(
       fakeInput(),

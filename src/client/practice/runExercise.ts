@@ -90,12 +90,25 @@ export function runExercise(
 
   return new Promise((resolve, reject) => {
     let timer = 0
+    let settled = false
+    const finish = (outcome: RunOutcome | null) => {
+      if (settled) return
+      settled = true
+      options.signal?.removeEventListener('abort', abandon)
+      resolve(outcome)
+    }
+    const fail = (error: unknown) => {
+      if (settled) return
+      settled = true
+      options.signal?.removeEventListener('abort', abandon)
+      reject(error)
+    }
     const abandon = () => {
       window.clearTimeout(timer)
       capture.stop()
       void audio.close()
       console.info('[MIDI] run stopped before the capture window closed.')
-      resolve(null)
+      finish(null)
     }
     if (options.signal?.aborted) {
       abandon()
@@ -105,9 +118,12 @@ export function runExercise(
 
     timer = window.setTimeout(
       () => {
-        options.signal?.removeEventListener('abort', abandon)
         capture.stop()
         void audio.close()
+        if (options.signal?.aborted) {
+          finish(null)
+          return
+        }
         console.table(
           capture.events.map((event) => ({
             sequence: event.sequenceNumber,
@@ -123,7 +139,11 @@ export function runExercise(
           console.log(
             `Practice run at ${exercise.tempoBpm} BPM -- not submitted, no score.`
           )
-          resolve(null)
+          finish(null)
+          return
+        }
+        if (options.signal?.aborted) {
+          finish(null)
           return
         }
         const payload: SubmitRun = {
@@ -134,9 +154,9 @@ export function runExercise(
           tempoBpm: exercise.tempoBpm,
           events: capture.events
         }
-        submitRun(payload).then(
-          (response) => resolve({ response, events: capture.events }),
-          reject
+        submitRun(payload, options.signal).then(
+          (response) => finish({ response, events: capture.events }),
+          fail
         )
       },
       // one beat past the final expected note, matching the metronome's

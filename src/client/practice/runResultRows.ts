@@ -157,6 +157,10 @@ function formatMs(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function formatPercent(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
 // "20% of the 375 ms between notes (80 BPM, 2 per beat)" -- the rule
 // spelled out with its arithmetic, so a pass or fail never needs to be
 // taken on trust. Quotes the note interval, not the beat: at two notes per
@@ -170,5 +174,5 @@ export function describeTimingRule(verdict: RunVerdict): string {
     verdict.notesPerBeat === 1
       ? `${verdict.tempoBpm} BPM, 1 note per beat`
       : `${verdict.tempoBpm} BPM, ${verdict.notesPerBeat} notes per beat`
-  return `±${formatMs(verdict.toleranceMs)} ms — ${formatMs(verdict.tolerancePercent)}% of the ${formatMs(verdict.noteIntervalMs)} ms between notes (${grid})${allowance}`
+  return `±${formatMs(verdict.toleranceMs)} ms — ${formatPercent(verdict.tolerancePercent)}% of the ${formatMs(verdict.noteIntervalMs)} ms between notes (${grid})${allowance}`
 }

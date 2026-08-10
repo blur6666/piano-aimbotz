@@ -38,7 +38,7 @@ Everything below has been decided; the open questions at the end have not.
 ### Exercise shape
 
 - **One hand only** (right hand) for v1. Not permanent — revisit later.
-- **One octave** for v1, ascending and descending. Also a scope decision, not a permanent one.
+- **One and two octaves** for v1, ascending and descending. Two-octave variants only where the fingering is sourced (Group 1 and F); the black-key scales stay one octave until their two-octave fingering is provenanced. Still a scope decision, not a permanent one.
 - **Ascending and descending are separate exercises.** The thumb movement differs — tuck under going up, cross over coming down — and most players are measurably worse in one direction. Do not aggregate them together.
 - **Fixed tempo for v1.** Varying tempo is wanted later. Free tempo probably never — it turns "late" from a subtraction into an inference problem.
 - Display both the scale **and** the fingering, in the style of pianoscales.org.
@@ -119,7 +119,7 @@ Two tables:
 
 **Events** — one row per MIDI message. Run, timestamp, type (note-on or note-off), pitch, velocity.
 
-**Not** one row per expected note. The number of messages in a run is unknown in advance — extra notes, missed notes, and the fact that note-on and note-off are separate messages all break any one-to-one mapping onto the eight expected steps.
+**Not** one row per expected note. The number of messages in a run is unknown in advance — extra notes, missed notes, and the fact that note-on and note-off are separate messages all break any one-to-one mapping onto the expected steps.
 
 The expected sequence is already known from the scale definition, so matching played events against expected steps is **analysis, not storage**. Store what happened; derive what it means.
 
@@ -153,4 +153,4 @@ Storing raw MIDI events rather than computed statistics is what makes this safe:
 
 ## Scope discipline
 
-Explicitly **not** v1: sight-reading, rhythm exercises beyond straight eighths/quarters, sheet music rendering, two hands, multi-octave, arpeggios, free tempo. Each is its own project.
+Explicitly **not** v1: sight-reading, rhythm exercises beyond straight eighths/quarters, sheet music rendering, two hands, more than two octaves, arpeggios, free tempo. Each is its own project.

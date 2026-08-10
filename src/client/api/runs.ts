@@ -124,12 +124,14 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 export async function submitRun(
-  payload: SubmitRun
+  payload: SubmitRun,
+  signal?: AbortSignal
 ): Promise<SubmitRunResponse> {
   const response = await fetch('/api/runs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal
   })
   const data = await response.json()
   if (!response.ok)
