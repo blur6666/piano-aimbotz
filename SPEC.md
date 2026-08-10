@@ -37,7 +37,9 @@
 
 ## Out of scope
 
-**Not v1, each its own project or later increment:** sight-reading, rhythm exercises beyond straight eighths/quarters, sheet music rendering, two hands, more than two octaves, arpeggios, free tempo, and scale-advancement gating/unlocking (see "Product vision" — scale progression stays advisory, not enforced, and there's no plan to change that).
+**Not v1, each its own project or later increment:** sight-reading, rhythm exercises beyond straight eighths/quarters, sheet music rendering, two hands, more than two octaves, arpeggios, free tempo.
+
+**Not v1, and not planned:** a hard scale-lock or "unlock table" that blocks a scale until an earlier one is mastered. Scale progression itself — tracking readiness and recommending the next scale — is very much in v1; it just stays sandbox-style: advisory, not enforced. Nothing about the current design gates navigation (see "Product vision").
 
 **Deferred, to be decided from real session data rather than guessed up front:**
 
