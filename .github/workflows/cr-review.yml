@@ -78,7 +78,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode-go/deepseek-v4-pro
+          model: deepseek-v4-pro
           agent: pr-reviewer
           use_github_token: true
           share: false
@@ -122,7 +122,7 @@ jobs:
         with:
           # Deliberately a different model family than the reviewer — an agent
           # grading its own findings agrees with itself.
-          model: opencode-go/grok-4.5
+          model: grok-4.5
           agent: pr-planner
           use_github_token: true
           share: false
