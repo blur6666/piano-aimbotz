@@ -1,4 +1,8 @@
 import type { ScaleKey } from './noteNames.js'
+import {
+  FULL_KEYBOARD_BLACK_KEYS,
+  FULL_KEYBOARD_WHITE_KEYS
+} from './noteNames.js'
 
 const OCTAVE_WHITE_NOTES = [
   { note: 'C', pitchClass: 0 },
@@ -21,6 +25,7 @@ const OCTAVE_BLACK_NOTES = [
 ]
 
 const WHITE_KEYS_PER_OCTAVE = OCTAVE_WHITE_NOTES.length
+const BLACK_KEYS_PER_OCTAVE = OCTAVE_BLACK_NOTES.length
 
 // Horizontal centre of a key, in percent of the keyboard width. White keys
 // sit at the middle of their slot; black keys straddle the boundary between
@@ -50,23 +55,45 @@ export type KeyboardProps = {
   // Span of the drawn C-to-C keyboard: 2 octaves for a one-octave exercise,
   // and 3 for a two-octave exercise, so both tonic endpoints fit.
   octaves: number
+  // Fullscreen-landscape mode (docs/BACKLOG.md): draw the fixed 61-key
+  // keyboard (C2..C7) instead of the compact exercise-span keyboard, and
+  // place the scale keys using their absolute keyboard octave indices.
+  full?: boolean
 }
 
 // Reference keyboard showing the selected exercise on the keys it actually
 // uses, with each step's note and finger labelled beneath its own key.
 // Presentation only -- nothing here feeds scoring.
-export function Keyboard({ scaleKeys, octaves }: KeyboardProps) {
-  const whiteKeyWidthPercent = 100 / (octaves * WHITE_KEYS_PER_OCTAVE)
-  const whiteKeys = Array.from({ length: octaves }, (_, octave) =>
-    OCTAVE_WHITE_NOTES.map((key) => ({ ...key, octave }))
-  ).flat()
-  const blackKeys = Array.from({ length: octaves }, (_, octave) =>
-    OCTAVE_BLACK_NOTES.map((key) => ({
-      ...key,
-      octave,
-      afterWhiteIndex: key.afterWhiteIndex + octave * WHITE_KEYS_PER_OCTAVE
-    }))
-  ).flat()
+export function Keyboard({ scaleKeys, octaves, full = false }: KeyboardProps) {
+  const whiteKeyWidthPercent = full
+    ? 100 / FULL_KEYBOARD_WHITE_KEYS
+    : 100 / (octaves * WHITE_KEYS_PER_OCTAVE)
+  const whiteKeys = full
+    ? Array.from({ length: FULL_KEYBOARD_WHITE_KEYS }, (_, index) => ({
+        ...OCTAVE_WHITE_NOTES[index % WHITE_KEYS_PER_OCTAVE],
+        octave: Math.floor(index / WHITE_KEYS_PER_OCTAVE)
+      }))
+    : Array.from({ length: octaves }, (_, octave) =>
+        OCTAVE_WHITE_NOTES.map((key) => ({ ...key, octave }))
+      ).flat()
+  const blackKeys = full
+    ? Array.from({ length: FULL_KEYBOARD_BLACK_KEYS }, (_, index) => {
+        const octave = Math.floor(index / BLACK_KEYS_PER_OCTAVE)
+        const black = OCTAVE_BLACK_NOTES[index % BLACK_KEYS_PER_OCTAVE]
+        return {
+          ...black,
+          octave,
+          afterWhiteIndex:
+            black.afterWhiteIndex + octave * WHITE_KEYS_PER_OCTAVE
+        }
+      })
+    : Array.from({ length: octaves }, (_, octave) =>
+        OCTAVE_BLACK_NOTES.map((key) => ({
+          ...key,
+          octave,
+          afterWhiteIndex: key.afterWhiteIndex + octave * WHITE_KEYS_PER_OCTAVE
+        }))
+      ).flat()
   const highlighted = new Set(
     scaleKeys.map((key) => `${key.octave}:${key.pitchClass}`)
   )

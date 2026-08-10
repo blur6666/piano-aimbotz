@@ -25,6 +25,13 @@ main {
   margin: 0 auto;
   padding: 72px 24px;
 }
+/* Fullscreen-landscape viewport (docs/BACKLOG.md): use the horizontal space
+   instead of the narrow portrait column. A plain landscape tab counts. */
+main.landscape-practice {
+  max-width: none;
+  padding-left: 40px;
+  padding-right: 40px;
+}
 header {
   max-width: 650px;
   margin-bottom: 42px;

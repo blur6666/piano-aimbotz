@@ -23,7 +23,11 @@ import {
 import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
 import { Keyboard } from './practice/Keyboard.js'
-import { keyboardOctaveCount, resolveScaleKeys } from './practice/noteNames.js'
+import {
+  keyboardOctaveCount,
+  nearestFullKeyboardPlacement,
+  resolveScaleKeys
+} from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
   if (deviationUs === null) return '—'
@@ -85,6 +89,11 @@ function App() {
       : DEFAULT_METRONOME_VOLUME
   })
   const [looping, setLooping] = useState(false)
+  // Fullscreen-landscape viewport (docs/BACKLOG.md): any landscape window,
+  // fullscreen or not, gets the wide layout and the full 61-key keyboard.
+  const [landscape, setLandscape] = useState(
+    () => window.innerWidth > window.innerHeight
+  )
   const inputsRef = useRef<MIDIInput[]>([])
   const countInVoiceRef = useRef<CountInVoice | null>(null)
   // Aborts the run in flight. Also the "should the loop keep going" flag:
@@ -108,6 +117,16 @@ function App() {
   const activeInputId = useComputerKeyboard
     ? COMPUTER_KEYBOARD_INPUT_ID
     : selectedRealInputId
+  const keyboardScaleKeys =
+    exercise && keyboardOctaves !== null
+      ? landscape
+        ? (nearestFullKeyboardPlacement(
+            exercise.steps,
+            exercise.direction,
+            exercise.octaves
+          )?.scaleKeys ?? [])
+        : resolveScaleKeys(exercise.steps, exercise.direction, keyboardOctaves)
+      : []
 
   const loadHistory = useCallback((exerciseId: number) => {
     fetchRunHistory(exerciseId)
@@ -192,6 +211,20 @@ function App() {
   useEffect(() => {
     loopingRef.current = looping
   }, [looping])
+
+  // Re-evaluate landscape on every resize and orientation change. No
+  // Fullscreen API: a normal landscape browser tab counts (docs/BACKLOG.md).
+  useEffect(() => {
+    function updateLandscape() {
+      setLandscape(window.innerWidth > window.innerHeight)
+    }
+    window.addEventListener('resize', updateLandscape)
+    window.addEventListener('orientationchange', updateLandscape)
+    return () => {
+      window.removeEventListener('resize', updateLandscape)
+      window.removeEventListener('orientationchange', updateLandscape)
+    }
+  }, [])
 
   // Space starts a run, or stops the one in flight. Deliberately not a
   // letter: A-K and W/E/T/Y/U are piano keys in computer-keyboard mode.
@@ -375,7 +408,7 @@ function App() {
   startRunRef.current = () => void startRun()
 
   return (
-    <main>
+    <main className={landscape ? 'landscape-practice' : ''}>
       <header>
         <h1>Scales Trainer</h1>
       </header>
@@ -485,12 +518,9 @@ function App() {
           keyboardOctaves !== null &&
           (!running || showKeyboardDuringTest) && (
             <Keyboard
-              scaleKeys={resolveScaleKeys(
-                exercise.steps,
-                exercise.direction,
-                keyboardOctaves
-              )}
+              scaleKeys={keyboardScaleKeys}
               octaves={keyboardOctaves}
+              full={landscape}
             />
           )}
         {exercise && outcome && !running && (
