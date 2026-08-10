@@ -1,0 +1,138 @@
+# Agent code review, automated leg.
+#
+# review -> plan -> STOP. Nothing here writes code; the loop only continues
+# when a human comments `/oc apply ...` (see cr-apply.yml).
+#
+# Every Actions run is a fresh container with no memory of any other run. The
+# shared state between the agents is the PR itself: the diff plus the comment
+# thread. Each agent reads it and writes one marked comment back to it.
+#
+# Requires one repository secret: OPENCODE_API_KEY (opencode-go / Zen key).
+
+name: cr
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: cr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # A fix commit pushed by the GitHub App token re-fires `synchronize`, which
+  # would restart this workflow. Stop after this many review rounds.
+  MAX_ROUNDS: '3'
+
+jobs:
+  # Fork PRs get no secrets on `pull_request`, so the agent jobs would run
+  # with no API key and fail confusingly. Skip them instead. (Do not reach for
+  # `pull_request_target` — it runs this workflow with write permissions
+  # against untrusted code.)
+  guard:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      proceed: ${{ steps.rounds.outputs.proceed }}
+    steps:
+      - name: Count previous review rounds
+        id: rounds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          n=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                --jq '[.[] | select(.body | contains("<!-- cr:review -->"))] | length')
+          echo "Completed rounds: $n (max $MAX_ROUNDS)"
+          if [ "$n" -ge "$MAX_ROUNDS" ]; then
+            echo "Round limit reached — not reviewing again. Say why in a comment or bump MAX_ROUNDS." >> "$GITHUB_STEP_SUMMARY"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  review:
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so the agent can diff against the base branch.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode-go/deepseek-v4-pro
+          agent: pr-reviewer
+          use_github_token: true
+          share: false
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }}
+            against base branch `${{ github.event.pull_request.base.ref }}`.
+
+            Follow your agent instructions exactly, including the
+            `<!-- cr:review -->` marker and the R<n> id format. Do not modify,
+            stage, or commit any file.
+
+  plan:
+    needs: review
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Dump the PR comment thread
+        # Deterministic context beats trusting the agent to fetch it, and it
+        # is one less way for a round to silently no-op. `.cr/` is gitignored.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p .cr
+          gh pr view ${{ github.event.pull_request.number }} --comments > .cr/thread.md
+          wc -l .cr/thread.md
+
+      - name: Triage
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Deliberately a different model family than the reviewer — an agent
+          # grading its own findings agrees with itself.
+          model: opencode-go/grok-4.5
+          agent: pr-planner
+          use_github_token: true
+          share: false
+          prompt: |
+            Triage the review on pull request
+            #${{ github.event.pull_request.number }}.
+
+            Read `.cr/thread.md`, take the LAST comment beginning with
+            `<!-- cr:review -->`, and follow your agent instructions exactly,
+            including the `<!-- cr:plan -->` marker and the closing
+            `/oc apply` line. Do not modify or commit any file.
