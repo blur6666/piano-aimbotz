@@ -43,11 +43,11 @@ Read `.cr/thread.md` (the workflow writes it before you start) and take the
 
 ## Before you commit
 
-Read `ARCHITECTURE.md` § "Invariants that must not be rediscovered" before
+Read `docs/ARCHITECTURE.md` — the invariants list it ends with — before
 touching scoring, progression, or the schema — a fix that clears one finding
 by breaking an invariant is a worse PR than the one you started with.
 
-Run the checks from `AGENTS.md` § Checks. The workflow already ran `npm ci`,
+Run the checks `AGENTS.md` lists. The workflow already ran `npm ci`,
 `npm run migrate` and `npm run seed` against a throwaway `ci.db`, with the
 same scoring/progression environment `ci.yml` uses:
 

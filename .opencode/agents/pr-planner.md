@@ -43,8 +43,8 @@ reason "misread".
 Mark FIX when the finding is real and worth a commit. Mark WONTFIX when:
 
 - The claim is wrong about the code.
-- The rule quoted is not in `ARCHITECTURE.md` or `SPEC.md` — a reviewer that
-  cannot quote an invariant is inventing it.
+- The rule quoted is not in `docs/ARCHITECTURE.md` or `docs/SPEC.md` — a
+  reviewer that cannot quote an invariant is inventing it.
 - The fix is out of scope for this PR and belongs in its own change. Say so.
 - The change is right and the *document* is stale. Route that to `scribe`
   rather than "fixing" working code to match an out-of-date doc.

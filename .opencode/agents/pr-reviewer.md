@@ -29,10 +29,10 @@ addressable so a later agent can act on individual findings.
 
 Do not work from memory or from this file's summary of them. Actually read:
 
-- `ARCHITECTURE.md` § "Invariants that must not be rediscovered".
-- `SPEC.md` § "Read this first" — the scope stance and the "Do not propose"
+- `docs/ARCHITECTURE.md` — the invariants list it ends with.
+- `docs/SPEC.md` — the scope stance and the "Do not propose"
   list.
-- `AGENTS.md` § "Invariants worth restating" for the ones broken most often.
+- `AGENTS.md`'s restated invariants, for the ones broken most often.
 
 Then read the change: `git diff origin/${GITHUB_BASE_REF:-master}...HEAD`.
 The checkout is full-depth, so that range is available. If the diff is empty,
@@ -47,7 +47,7 @@ run, `exercise_progress` staying rebuildable, migrations applying exactly
 once, and catalog fingerings never being invented.
 
 Beyond the invariants, ordinary review: bugs, unhandled edge cases, tests
-that assert nothing, a check in `AGENTS.md` § Checks the change would break.
+that assert nothing, a check `AGENTS.md` lists that the change would break.
 
 You cannot run the checks — you have no bash beyond git and `gh`. CI runs
 them in the `verify` workflow. Do not guess at whether tests pass; if a
