@@ -73,11 +73,6 @@ jobs:
         with:
           # Full history so the agent can diff against the base branch.
           fetch-depth: 0
-          # The persisted GITHUB_TOKEN is the read-scoped one this job ships
-          # with. The opencode action installs its own write-scoped auth via
-          # `http.https://github.com/.extraheader` (see configureGit in the
-          # action), so the helper here only widens exposure.
-          persist-credentials: false
 
       # The opencode github action pushes a synthetic commit to the local
       # branch on completion (e.g. "Pass, clean, merge. No findings." for
@@ -123,9 +118,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          # See review job: the opencode action installs its own auth header
-          # via configureGit; persisting the read-scoped helper adds nothing.
-          persist-credentials: false
 
       # See review job -- the opencode action's completion commit needs
       # a git identity to succeed.
