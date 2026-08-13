@@ -131,12 +131,26 @@ jobs:
       - name: Dump the PR comment thread
         # Deterministic context beats trusting the agent to fetch it, and it
         # is one less way for a round to silently no-op. `.cr/` is gitignored.
+        #
+        # REST, not `gh pr view --comments`. That command pulls a wide GraphQL
+        # payload including statusCheckRollup, which needs `checks: read` --
+        # absent here, so it fails with "Resource not accessible by
+        # integration" and `set -e` kills the step before the agent starts.
+        # It only fails once a check run exists to roll up, so it presents as
+        # an intermittent "the loop is broken" (run 31733335847). The `guard`
+        # job above already reads comments this way and has never failed.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           mkdir -p .cr
-          gh pr view ${{ github.event.pull_request.number }} --comments > .cr/thread.md
+          gh api "repos/$REPO/pulls/$PR" \
+            --jq '"# \(.title)\n\n\(.body // "")"' > .cr/thread.md
+          gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | "\n\n===== comment by \(.user.login) at \(.created_at) =====\n\n\(.body)"' \
+            >> .cr/thread.md
           wc -l .cr/thread.md
 
       - name: Triage

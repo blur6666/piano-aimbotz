@@ -94,12 +94,21 @@ jobs:
           mkdir -p .cr
 
       - name: Dump the PR comment thread and the command
+        # REST rather than `gh pr view --comments` -- see the same step in
+        # cr-review.yml. That command needs `checks: read` for its GraphQL
+        # statusCheckRollup field and dies without it once a check run exists.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BODY: ${{ github.event.comment.body }}
+          PR: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh pr view ${{ github.event.issue.number }} --comments > .cr/thread.md
+          gh api "repos/$REPO/pulls/$PR" \
+            --jq '"# \(.title)\n\n\(.body // "")"' > .cr/thread.md
+          gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | "\n\n===== comment by \(.user.login) at \(.created_at) =====\n\n\(.body)"' \
+            >> .cr/thread.md
           printf '%s' "$BODY" > .cr/command.txt
 
       - name: Apply
