@@ -7,7 +7,9 @@
 # shared state between the agents is the PR itself: the diff plus the comment
 # thread. Each agent reads it and writes one marked comment back to it.
 #
-# Requires one repository secret: OPENCODE_API_KEY (opencode-go / Zen key).
+# Requires one repository secret: OPENCODE_API_KEY (the opencode key from
+# `opencode auth login`). Model ids take the form `opencode/<model-id>`;
+# the API returns the bare id, the workflow supplies the provider prefix.
 
 name: cr
 
@@ -63,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
     steps:
@@ -71,13 +73,21 @@ jobs:
         with:
           # Full history so the agent can diff against the base branch.
           fetch-depth: 0
+          # The persisted GITHUB_TOKEN is the read-scoped one this job ships
+          # with. The opencode action installs its own write-scoped auth via
+          # `http.https://github.com/.extraheader` (see configureGit in the
+          # action), so the helper here only widens exposure.
+          persist-credentials: false
 
       # The opencode github action pushes a synthetic commit to the local
       # branch on completion (e.g. "Pass, clean, merge. No findings." for
       # review jobs, or a diff for fix jobs). Without an identity, that
       # commit fails with "Author identity unknown" and the actual review
       # comment never gets posted -- the error replaces it. Use a no-reply
-      # identity so the action can complete.
+      # identity so the action can complete. `contents: write` above is what
+      # lets the push succeed once the commit is staged; the read-only
+      # agents (pr-reviewer, pr-planner) have `edit: deny`, so this commit
+      # is only a benign completion message in normal runs.
       - name: Set git identity
         run: |
           git config --global user.email "ci@piano-aimbotz.local"
@@ -89,7 +99,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode-go/deepseek-v4-pro
+          model: opencode/deepseek-v4-pro
           agent: pr-reviewer
           use_github_token: true
           share: false
@@ -106,13 +116,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # See review job: the opencode action installs its own auth header
+          # via configureGit; persisting the read-scoped helper adds nothing.
+          persist-credentials: false
 
       # See review job -- the opencode action's completion commit needs
       # a git identity to succeed.
@@ -140,7 +153,7 @@ jobs:
         with:
           # Deliberately a different model family than the reviewer — an agent
           # grading its own findings agrees with itself.
-          model: opencode-go/grok-4.5
+          model: opencode/grok-4.5
           agent: pr-planner
           use_github_token: true
           share: false

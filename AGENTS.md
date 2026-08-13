@@ -86,9 +86,9 @@ Nothing pushes code without your comment, which is what keeps the loop from
 running away. Reviewer and planner run on different model families on
 purpose — an agent grading its own findings agrees with itself. Override the
 fixer's model per invocation:
-`/oc apply R1 --model opencode-go/qwen3.8-max`.
+`/oc apply R1 --model opencode/qwen3.8-max`.
 
-Setup, once: add an `OPENCODE_API_KEY` repository secret (the opencode-go key
+Setup, once: add an `OPENCODE_API_KEY` repository secret (the opencode key
 from `opencode auth login`) and install the OpenCode GitHub App. The app's
 installation token is what lets a fix commit re-trigger CI — pushes made with
 `GITHUB_TOKEN` do not fire workflows. Fork PRs are skipped: they get no
