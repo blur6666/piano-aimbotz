@@ -4,7 +4,7 @@
 #
 #   /oc apply R1,R3
 #   /oc apply all
-#   /oc apply R2 --model opencode/qwen3.8-max
+#   /oc apply R2 --model opencode-go/qwen3.8-max
 #
 # Two things to know about `issue_comment` workflows:
 #   * they always run the copy on the default branch, so edits to this file
@@ -69,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           M=$(printf '%s' "$BODY" | grep -oP '(?<=--model )[A-Za-z0-9._/-]+' || true)
-          echo "model=${M:-opencode/gpt-5.6-luna}" >> "$GITHUB_OUTPUT"
+          echo "model=${M:-opencode-go/gpt-5.6-luna}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v6
         with:

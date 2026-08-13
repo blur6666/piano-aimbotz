@@ -8,8 +8,10 @@
 # thread. Each agent reads it and writes one marked comment back to it.
 #
 # Requires one repository secret: OPENCODE_API_KEY (the opencode key from
-# `opencode auth login`). Model ids take the form `opencode/<model-id>`;
-# the API returns the bare id, the workflow supplies the provider prefix.
+# `opencode auth login`). The `opencode-go/` provider prefix routes to the
+# Go subscription tier -- pick a model tier that is enabled on your
+# account (no `-free`, no `-pro` suffix); the workflow defaults are
+# `deepseek-v4-flash`, `grok-4.5`, `gpt-5.6-luna`.
 
 name: cr
 
@@ -94,7 +96,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode/deepseek-v4-pro
+          model: opencode-go/deepseek-v4-flash
           agent: pr-reviewer
           use_github_token: true
           share: false
@@ -145,7 +147,7 @@ jobs:
         with:
           # Deliberately a different model family than the reviewer — an agent
           # grading its own findings agrees with itself.
-          model: opencode/grok-4.5
+          model: opencode-go/grok-4.5
           agent: pr-planner
           use_github_token: true
           share: false
