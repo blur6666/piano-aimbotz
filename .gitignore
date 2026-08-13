@@ -154,3 +154,6 @@ vite.config.ts.timestamp-*
 # sources; the HTML is a shareable single-file artifact rebuilt on demand with
 # `npm run report:html`. Delete this line if you would rather commit it.
 reports/**/REPORT.html
+
+# Playwright MCP ephemeral page snapshots
+.playwright-mcp/
