@@ -7,7 +7,11 @@
 # shared state between the agents is the PR itself: the diff plus the comment
 # thread. Each agent reads it and writes one marked comment back to it.
 #
-# Requires one repository secret: OPENCODE_API_KEY (opencode-go / Zen key).
+# Requires one repository secret: OPENCODE_API_KEY (the opencode key from
+# `opencode auth login`). The `opencode-go/` provider prefix routes to the
+# Go subscription tier -- pick a model tier that is enabled on your
+# account (no `-free`, no `-pro` suffix); the workflow defaults are
+# `deepseek-v4-flash`, `grok-4.5`, `gpt-5.6-luna`.
 
 name: cr
 
@@ -63,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
     steps:
@@ -71,7 +75,20 @@ jobs:
         with:
           # Full history so the agent can diff against the base branch.
           fetch-depth: 0
-          persist-credentials: false
+
+      # The opencode github action pushes a synthetic commit to the local
+      # branch on completion (e.g. "Pass, clean, merge. No findings." for
+      # review jobs, or a diff for fix jobs). Without an identity, that
+      # commit fails with "Author identity unknown" and the actual review
+      # comment never gets posted -- the error replaces it. Use a no-reply
+      # identity so the action can complete. `contents: write` above is what
+      # lets the push succeed once the commit is staged; the read-only
+      # agents (pr-reviewer, pr-planner) have `edit: deny`, so this commit
+      # is only a benign completion message in normal runs.
+      - name: Set git identity
+        run: |
+          git config --global user.email "ci@piano-aimbotz.local"
+          git config --global user.name "piano-aimbotz-ci"
 
       - name: Review
         uses: anomalyco/opencode/github@latest
@@ -79,7 +96,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode-go/deepseek-v4-pro
+          model: opencode-go/deepseek-v4-flash
           agent: pr-reviewer
           use_github_token: true
           share: false
@@ -96,14 +113,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          persist-credentials: false
+
+      # See review job -- the opencode action's completion commit needs
+      # a git identity to succeed.
+      - name: Set git identity
+        run: |
+          git config --global user.email "ci@piano-aimbotz.local"
+          git config --global user.name "piano-aimbotz-ci"
 
       - name: Dump the PR comment thread
         # Deterministic context beats trusting the agent to fetch it, and it

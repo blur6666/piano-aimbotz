@@ -6,7 +6,16 @@ export type SelectableExercise = Exercise & {
   label: string
 }
 
-export async function fetchExercises(): Promise<SelectableExercise[]> {
+export type ExerciseCatalog = {
+  // Flattened, but still in the server's progression order: the trail order
+  // is the recommendation (docs/SPEC.md), so nothing here re-sorts.
+  exercises: SelectableExercise[]
+  // Which scale to work on now, or null once every scale is cleared. The
+  // server decides it; the browser only renders it.
+  recommendedScaleSlug: string | null
+}
+
+export async function fetchExercises(): Promise<ExerciseCatalog> {
   const response = await fetch('/api/exercises')
   if (!response.ok) throw new Error('The exercise catalog is not seeded.')
   const data = (await response.json()) as ExerciseListResponse
@@ -23,5 +32,5 @@ export async function fetchExercises(): Promise<SelectableExercise[]> {
               ? `${scale.displayName} ${exercise.direction}`
               : `${scale.displayName} ${exercise.direction} (${exercise.octaves} octaves)`
         })
-  return exercises
+  return { exercises, recommendedScaleSlug: data.recommendedScaleSlug }
 }

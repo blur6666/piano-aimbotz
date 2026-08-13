@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type Database from 'better-sqlite3'
+import { recommendNextScale } from '../../domain/progression/recommendation.js'
 import type { AppConfig } from '../config.js'
 import type {
   Exercise,
@@ -12,6 +13,7 @@ type ExerciseRow = {
   exercise_id: number
   direction: 'ascending' | 'descending'
   octaves: number
+  initial_tempo_bpm: number
   current_tempo_bpm: number
   consecutive_clean_runs: number
   group_slug: string
@@ -63,6 +65,7 @@ export function registerExerciseRoutes(
            e.id AS exercise_id,
            e.direction AS direction,
            e.octaves AS octaves,
+           p.initial_tempo_bpm AS initial_tempo_bpm,
            p.current_tempo_bpm AS current_tempo_bpm,
            p.consecutive_clean_runs AS consecutive_clean_runs,
            g.slug AS group_slug,
@@ -92,6 +95,7 @@ export function registerExerciseRoutes(
         id: row.exercise_id,
         direction: row.direction,
         octaves: row.octaves,
+        initialTempoBpm: row.initial_tempo_bpm,
         currentTempoBpm: row.current_tempo_bpm,
         notesPerBeat: config.notesPerBeat,
         consecutiveCleanRuns: row.consecutive_clean_runs,
@@ -127,8 +131,15 @@ export function registerExerciseRoutes(
       scale.exercises.push(exercise)
     }
 
+    // The rows were selected in progression order and inserted into this map
+    // in that order, so its values are already the trail. recommendNextScale
+    // relies on that rather than re-deriving the ordering from the ordinals.
     const response: ExerciseListResponse = {
-      groups: [...groupsBySlug.values()]
+      groups: [...groupsBySlug.values()],
+      recommendedScaleSlug: recommendNextScale(
+        [...scalesBySlug.values()],
+        config.recommendation
+      )
     }
     return response
   })

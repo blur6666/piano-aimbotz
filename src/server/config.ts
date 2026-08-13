@@ -1,9 +1,17 @@
 import type { ScoringConfig } from '../domain/scoring.js'
 import type { ProgressionPolicy } from '../domain/progression/index.js'
+import type {
+  ExerciseDirection,
+  RecommendationConfig
+} from '../domain/progression/recommendation.js'
 
 export type AppConfig = {
   scoring: ScoringConfig
   progression: ProgressionPolicy
+  // What "cleared" means for the next-scale recommendation. Configuration
+  // rather than a rule because docs/SPEC.md calls the composition a
+  // placeholder to be tuned against real sessions, like the tolerances.
+  recommendation: RecommendationConfig
   seedInitialTempoBpm: number
   // Applied to every new run and stored on the run row. Not a per-exercise
   // column: every exercise currently uses the same grid, and docs/SPEC.md says
@@ -60,6 +68,31 @@ function requireEnum<T extends string>(
       `Invalid configuration value for ${name}: expected one of ${allowed.join(', ')}, got ${raw}`
     )
   return raw as T
+}
+
+// A comma-separated direction list, e.g. "ascending,descending". Order does
+// not matter and duplicates are rejected rather than silently collapsed: a
+// repeated entry means whoever wrote it believed it counted twice.
+function requireDirections(
+  env: NodeJS.ProcessEnv,
+  name: string
+): ExerciseDirection[] {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '')
+    throw new ConfigError(`Missing required configuration value: ${name}`)
+  const allowed: readonly ExerciseDirection[] = ['ascending', 'descending']
+  const parts = raw.split(',').map((part) => part.trim())
+  for (const part of parts)
+    if (!allowed.includes(part as ExerciseDirection))
+      throw new ConfigError(
+        `Invalid configuration value for ${name}: expected a comma-separated list of ${allowed.join(', ')}, got ${raw}`
+      )
+  const directions = parts as ExerciseDirection[]
+  if (new Set(directions).size !== directions.length)
+    throw new ConfigError(
+      `Invalid configuration value for ${name}: duplicate direction in ${raw}`
+    )
+  return directions
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -131,7 +164,28 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           }
         })()
 
-  return { scoring, progression, seedInitialTempoBpm, notesPerBeat }
+  const clearOctaves = requireInt(env, 'RECOMMENDATION_CLEAR_OCTAVES', {
+    min: 1
+  })
+  // Mirrors the CHECK constraint on exercises.octaves: an octave count the
+  // catalog cannot supply would make every scale permanently uncleared, and
+  // silently so, since an absent exercise never clears.
+  if (clearOctaves !== 1 && clearOctaves !== 2)
+    throw new ConfigError(
+      `Invalid configuration value for RECOMMENDATION_CLEAR_OCTAVES: expected 1 or 2, got ${clearOctaves}`
+    )
+  const recommendation: RecommendationConfig = {
+    clearOctaves,
+    clearDirections: requireDirections(env, 'RECOMMENDATION_CLEAR_DIRECTIONS')
+  }
+
+  return {
+    scoring,
+    progression,
+    recommendation,
+    seedInitialTempoBpm,
+    notesPerBeat
+  }
 }
 
 export function assertMinimumTempoAgainstExistingProgress(

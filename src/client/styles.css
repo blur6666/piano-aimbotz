@@ -25,6 +25,13 @@ main {
   margin: 0 auto;
   padding: 72px 24px;
 }
+/* Fullscreen-landscape viewport (docs/BACKLOG.md): use the horizontal space
+   instead of the narrow portrait column. A plain landscape tab counts. */
+main.landscape-practice {
+  max-width: none;
+  padding-left: 40px;
+  padding-right: 40px;
+}
 header {
   max-width: 650px;
   margin-bottom: 42px;
@@ -48,6 +55,24 @@ h1 {
   color: var(--text-dim);
   font-size: 20px;
   line-height: 1.5;
+}
+/* The next-scale signpost (docs/SPEC.md, "Advancement rule"). Advisory, so
+   it reads as a note rather than a control: nothing here is clickable and
+   nothing it names is locked. */
+.recommendation {
+  margin: 14px 0 0;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.recommendation strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+.recommendation .badge {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--accent);
 }
 .panel {
   border: 1px solid var(--border);

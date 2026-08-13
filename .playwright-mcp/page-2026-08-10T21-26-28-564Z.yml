@@ -1,0 +1,38 @@
+- main [ref=e3]:
+  - heading "Scales Trainer" [level=1] [ref=e5]
+  - generic [ref=e7]:
+    - combobox [ref=e8] [cursor=pointer]:
+      - option "No MIDI input connected" [selected]
+    - paragraph
+  - generic [ref=e10]:
+    - combobox [disabled] [ref=e11]:
+      - option "No exercise seeded" [selected]
+    - button "Start run" [disabled] [ref=e12]
+    - generic [ref=e13] [cursor=pointer]:
+      - checkbox "Auto-restart" [ref=e14]
+      - text: Auto-restart
+    - generic [ref=e15]:
+      - generic [ref=e16]: Click
+      - slider "Click" [ref=e17] [cursor=pointer]: "0.5"
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - strong [ref=e20]: —
+        - generic [ref=e21]: Current max BPM
+      - generic [ref=e22]:
+        - strong [ref=e23]: 0/3
+        - generic [ref=e24]: Streak
+  - generic [ref=e25]:
+    - heading "History" [level=2] [ref=e26]
+    - paragraph [ref=e27]: No runs recorded for this exercise yet.
+  - generic [ref=e28]:
+    - heading "Dev tools" [level=2] [ref=e29]
+    - generic [ref=e30]:
+      - generic [ref=e31] [cursor=pointer]:
+        - checkbox "Use computer keyboard as input" [ref=e32]
+        - text: Use computer keyboard as input
+      - generic [ref=e33] [cursor=pointer]:
+        - checkbox "Show keyboard during test" [checked] [ref=e34]
+        - text: Show keyboard during test
+      - generic [ref=e35] [cursor=pointer]:
+        - checkbox "Practice tempo (not scored)" [ref=e36]
+        - text: Practice tempo (not scored)

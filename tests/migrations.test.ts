@@ -481,4 +481,90 @@ describe('applyMigrations', () => {
 
     sqlite.close()
   })
+
+  it('the trail view states world 1 as an enumerated path whose last step announces itself', () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+
+    // 0006 already inserts group-1 and c-major; add the rest of the world.
+    const group = sqlite
+      .prepare('SELECT id FROM progression_groups WHERE slug = ?')
+      .get('group-1') as { id: number }
+    const insertScale = sqlite.prepare(
+      'INSERT INTO scales (progression_group_id, slug, display_name, tonic_pitch_class, position_in_group) VALUES (?, ?, ?, ?, ?)'
+    )
+    const rest: [string, string, number, number][] = [
+      ['g-major', 'G major', 7, 2],
+      ['d-major', 'D major', 2, 3],
+      ['a-major', 'A major', 9, 4],
+      ['e-major', 'E major', 4, 5],
+      ['b-major', 'B major', 11, 6]
+    ]
+    for (const [slug, name, pitchClass, position] of rest)
+      insertScale.run(group.id, slug, name, pitchClass, position)
+
+    const path = sqlite
+      .prepare(
+        'SELECT step_number, node_name, steps_in_world, is_final_step FROM trail WHERE world_number = 1'
+      )
+      .all()
+
+    // The path is readable in one query, in order, with no successor lookup.
+    expect(path).toEqual([
+      {
+        step_number: 1,
+        node_name: 'C major',
+        steps_in_world: 6,
+        is_final_step: 0
+      },
+      {
+        step_number: 2,
+        node_name: 'G major',
+        steps_in_world: 6,
+        is_final_step: 0
+      },
+      {
+        step_number: 3,
+        node_name: 'D major',
+        steps_in_world: 6,
+        is_final_step: 0
+      },
+      {
+        step_number: 4,
+        node_name: 'A major',
+        steps_in_world: 6,
+        is_final_step: 0
+      },
+      {
+        step_number: 5,
+        node_name: 'E major',
+        steps_in_world: 6,
+        is_final_step: 0
+      },
+      {
+        step_number: 6,
+        node_name: 'B major',
+        steps_in_world: 6,
+        is_final_step: 1
+      }
+    ])
+
+    // Completing the world is read off the final row, never inferred from the
+    // absence of a next one.
+    const final = sqlite
+      .prepare(
+        'SELECT node_name FROM trail WHERE world_number = 1 AND is_final_step = 1'
+      )
+      .all()
+    expect(final).toEqual([{ node_name: 'B major' }])
+
+    // The view owns no rows, so it cannot drift from the seeded catalog.
+    const views = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'view'")
+      .all()
+      .map((row) => (row as { name: string }).name)
+    expect(views).toContain('trail')
+
+    sqlite.close()
+  })
 })

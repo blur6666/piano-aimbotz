@@ -20,6 +20,10 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
+  recommendation: {
+    clearOctaves: 1,
+    clearDirections: ['ascending', 'descending']
+  },
   seedInitialTempoBpm: 60,
   notesPerBeat: 1
 }

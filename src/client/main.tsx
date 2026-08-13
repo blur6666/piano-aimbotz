@@ -23,23 +23,16 @@ import {
 import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
 import { Keyboard } from './practice/Keyboard.js'
-import { keyboardOctaveCount, resolveScaleKeys } from './practice/noteNames.js'
+import {
+  keyboardOctaveCount,
+  nearestFullKeyboardPlacement,
+  resolveScaleKeys
+} from './practice/noteNames.js'
 
 function formatDeviation(deviationUs: number | null): string {
   if (deviationUs === null) return '—'
   return `${(deviationUs / 1000).toFixed(1)} ms`
 }
-
-// Scope trimmed to the 5 easiest scales for now (BACKLOG.md); the rest
-// of the seeded catalog is unaffected, just hidden from this dropdown.
-const VISIBLE_SCALE_SLUGS = new Set([
-  'c-major',
-  'f-major',
-  'g-major',
-  'd-major',
-  'e-major',
-  'b-major'
-])
 
 // Remembers the selected MIDI input across reloads (BACKLOG.md). Once a
 // browser has granted Web MIDI permission to this origin, later
@@ -56,6 +49,10 @@ const DEFAULT_METRONOME_VOLUME = 0.5
 
 function App() {
   const [exercises, setExercises] = useState<SelectableExercise[]>([])
+  // Server-decided: the first scale not yet cleared, or null when all are.
+  const [recommendedScaleSlug, setRecommendedScaleSlug] = useState<
+    string | null
+  >(null)
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(
     null
   )
@@ -85,6 +82,11 @@ function App() {
       : DEFAULT_METRONOME_VOLUME
   })
   const [looping, setLooping] = useState(false)
+  // Fullscreen-landscape viewport (docs/BACKLOG.md): any landscape window,
+  // fullscreen or not, gets the wide layout and the full 61-key keyboard.
+  const [landscape, setLandscape] = useState(
+    () => window.innerWidth > window.innerHeight
+  )
   const inputsRef = useRef<MIDIInput[]>([])
   const countInVoiceRef = useRef<CountInVoice | null>(null)
   // Aborts the run in flight. Also the "should the loop keep going" flag:
@@ -100,14 +102,32 @@ function App() {
   const keyboardOctaves = exercise
     ? keyboardOctaveCount(exercise.octaves)
     : null
-  const visibleExercises = exercises.filter(
-    (candidate) =>
-      VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
-      candidate.direction === 'ascending'
-  )
+  // The whole seeded catalog. This used to be six hand-picked scales,
+  // ascending only, because nothing in the interface told the player where to
+  // start and a list of 48 was no help. The recommendation is that missing
+  // signpost, so the trim is gone. Descending in particular has to be
+  // reachable: a scale is not cleared until both directions have advanced
+  // (docs/SPEC.md), which an ascending-only picker made impossible.
+  const visibleExercises = exercises
+  // Null both when everything is cleared and before the catalog has loaded;
+  // the copy below is only rendered once exercises exist, so the two cases
+  // never get confused on screen.
+  const recommendedScaleName =
+    exercises.find((candidate) => candidate.scaleSlug === recommendedScaleSlug)
+      ?.scaleDisplayName ?? null
   const activeInputId = useComputerKeyboard
     ? COMPUTER_KEYBOARD_INPUT_ID
     : selectedRealInputId
+  const keyboardScaleKeys =
+    exercise && keyboardOctaves !== null
+      ? landscape
+        ? (nearestFullKeyboardPlacement(
+            exercise.steps,
+            exercise.direction,
+            exercise.octaves
+          )?.scaleKeys ?? [])
+        : resolveScaleKeys(exercise.steps, exercise.direction, keyboardOctaves)
+      : []
 
   const loadHistory = useCallback((exerciseId: number) => {
     fetchRunHistory(exerciseId)
@@ -121,14 +141,19 @@ function App() {
 
   useEffect(() => {
     fetchExercises()
-      .then((loaded) => {
-        setExercises(loaded)
-        const visible = loaded.filter(
-          (candidate) =>
-            VISIBLE_SCALE_SLUGS.has(candidate.scaleSlug) &&
-            candidate.direction === 'ascending'
-        )
-        if (visible.length > 0) setSelectedExerciseId(visible[0].id)
+      .then((catalog) => {
+        setExercises(catalog.exercises)
+        setRecommendedScaleSlug(catalog.recommendedScaleSlug)
+        // Open on the recommended scale rather than the top of the list, so
+        // the advice is acted on by default instead of merely displayed.
+        const opening =
+          catalog.exercises.find(
+            (candidate) =>
+              candidate.scaleSlug === catalog.recommendedScaleSlug &&
+              candidate.direction === 'ascending' &&
+              candidate.octaves === 1
+          ) ?? catalog.exercises[0]
+        if (opening) setSelectedExerciseId(opening.id)
       })
       .catch((error: Error) => setStatus(error.message))
   }, [])
@@ -192,6 +217,20 @@ function App() {
   useEffect(() => {
     loopingRef.current = looping
   }, [looping])
+
+  // Re-evaluate landscape on every resize and orientation change. No
+  // Fullscreen API: a normal landscape browser tab counts (docs/BACKLOG.md).
+  useEffect(() => {
+    function updateLandscape() {
+      setLandscape(window.innerWidth > window.innerHeight)
+    }
+    window.addEventListener('resize', updateLandscape)
+    window.addEventListener('orientationchange', updateLandscape)
+    return () => {
+      window.removeEventListener('resize', updateLandscape)
+      window.removeEventListener('orientationchange', updateLandscape)
+    }
+  }, [])
 
   // Space starts a run, or stops the one in flight. Deliberately not a
   // letter: A-K and W/E/T/Y/U are piano keys in computer-keyboard mode.
@@ -346,6 +385,20 @@ function App() {
             : candidate
         )
       )
+      // Clearing a scale requires an exercise to advance, so a run that did
+      // not raise the tempo cannot have moved the recommendation and needs no
+      // round trip. When one did, the server is asked rather than the rule
+      // being re-evaluated here -- the browser does not decide progression
+      // (docs/ARCHITECTURE.md, "Runtime shape").
+      if (progress.currentTempoBpm > exercise.currentTempoBpm)
+        fetchExercises()
+          .then((catalog) => {
+            setExercises(catalog.exercises)
+            setRecommendedScaleSlug(catalog.recommendedScaleSlug)
+          })
+          .catch((error: Error) =>
+            console.warn(`[recommendation] could not refresh: ${error.message}`)
+          )
       loadHistory(exercise.id)
       console.info(
         `[MIDI] run saved: ${originalAssessment.summary.hardFaultCount} wrong notes, passed=${originalAssessment.summary.passed}`
@@ -375,7 +428,7 @@ function App() {
   startRunRef.current = () => void startRun()
 
   return (
-    <main>
+    <main className={landscape ? 'landscape-practice' : ''}>
       <header>
         <h1>Scales Trainer</h1>
       </header>
@@ -416,7 +469,9 @@ function App() {
             ) : (
               visibleExercises.map((candidate) => (
                 <option key={candidate.id} value={candidate.id}>
-                  {candidate.label}
+                  {candidate.scaleSlug === recommendedScaleSlug
+                    ? `★ ${candidate.label}`
+                    : candidate.label}
                 </option>
               ))
             )}
@@ -465,6 +520,23 @@ function App() {
             </div>
           </div>
         </div>
+        {exercises.length > 0 && (
+          <p className="recommendation" aria-live="polite">
+            {recommendedScaleName === null ? (
+              <>
+                Every scale is cleared. Pick any one and keep it sharp — nothing
+                is locked.
+              </>
+            ) : (
+              <>
+                <span className="badge">★</span> Work on{' '}
+                <strong>{recommendedScaleName}</strong> next — it&rsquo;s the
+                first scale you haven&rsquo;t cleared. Any other scale is still
+                yours to pick.
+              </>
+            )}
+          </p>
+        )}
         {running && beat !== null && <div className="count">{beat}</div>}
         {exercise && (running || finalSteps !== null) && (
           <Timeline
@@ -485,12 +557,9 @@ function App() {
           keyboardOctaves !== null &&
           (!running || showKeyboardDuringTest) && (
             <Keyboard
-              scaleKeys={resolveScaleKeys(
-                exercise.steps,
-                exercise.direction,
-                keyboardOctaves
-              )}
+              scaleKeys={keyboardScaleKeys}
               octaves={keyboardOctaves}
+              full={landscape}
             />
           )}
         {exercise && outcome && !running && (

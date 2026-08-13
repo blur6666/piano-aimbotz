@@ -88,7 +88,7 @@ purpose — an agent grading its own findings agrees with itself. Override the
 fixer's model per invocation:
 `/oc apply R1 --model opencode-go/qwen3.8-max`.
 
-Setup, once: add an `OPENCODE_API_KEY` repository secret (the opencode-go key
+Setup, once: add an `OPENCODE_API_KEY` repository secret (the opencode key
 from `opencode auth login`) and install the OpenCode GitHub App. The app's
 installation token is what lets a fix commit re-trigger CI — pushes made with
 `GITHUB_TOKEN` do not fire workflows. Fork PRs are skipped: they get no
@@ -101,18 +101,18 @@ rule set. The seven subagents are for local work — run them with
 `opencode run --agent <name> "<task>"`. The three `pr-*` agents are primary
 agents driven by the workflows above; they are not useful to invoke by hand.
 
-| Agent | Guards | Run it |
-| --- | --- | --- |
-| `gate` | The check block above | Before calling any change done |
-| `invariant-auditor` | `docs/ARCHITECTURE.md` invariants, `docs/SPEC.md` scope | On every non-trivial diff |
-| `schema-smith` | `migrations/`, `src/server/db/` | Whenever the schema or seed changes |
-| `domain-test-author` | The named test lists in `docs/ARCHITECTURE.md` | When domain behaviour changes |
-| `catalog-provenance` | `catalog/v1.ts` fingering data and `docs/SCALES_FINGERING_REFERENCE.md` | Before any catalog edit lands |
-| `session-analyst` | Reads `piano.db` read-only, writes `reports/` | When tuning deferred thresholds |
-| `scribe` | Doc drift in `AGENTS.md`, `docs/` | After the code moves ahead of the docs |
-| `pr-reviewer` | Same rules as `invariant-auditor`, on a PR diff | CI, on every PR |
-| `pr-planner` | Turns findings into a FIX/WONTFIX menu | CI, after `pr-reviewer` |
-| `pr-fixer` | Applies only the ids you approved | CI, on `/oc apply` |
+| Agent                | Guards                                                                  | Run it                                 |
+| -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
+| `gate`               | The check block above                                                   | Before calling any change done         |
+| `invariant-auditor`  | `docs/ARCHITECTURE.md` invariants, `docs/SPEC.md` scope                 | On every non-trivial diff              |
+| `schema-smith`       | `migrations/`, `src/server/db/`                                         | Whenever the schema or seed changes    |
+| `domain-test-author` | The named test lists in `docs/ARCHITECTURE.md`                          | When domain behaviour changes          |
+| `catalog-provenance` | `catalog/v1.ts` fingering data and `docs/SCALES_FINGERING_REFERENCE.md` | Before any catalog edit lands          |
+| `session-analyst`    | Reads `piano.db` read-only, writes `reports/`                           | When tuning deferred thresholds        |
+| `scribe`             | Doc drift in `AGENTS.md`, `docs/`                                       | After the code moves ahead of the docs |
+| `pr-reviewer`        | Same rules as `invariant-auditor`, on a PR diff                         | CI, on every PR                        |
+| `pr-planner`         | Turns findings into a FIX/WONTFIX menu                                  | CI, after `pr-reviewer`                |
+| `pr-fixer`           | Applies only the ids you approved                                       | CI, on `/oc apply`                     |
 
 `invariant-auditor`, `catalog-provenance`, `pr-reviewer` and `pr-planner`
 cannot edit files — they report, you apply.

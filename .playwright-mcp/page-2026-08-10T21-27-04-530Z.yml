@@ -1,0 +1,358 @@
+- main [ref=e3]:
+  - heading "Scales Trainer" [level=1] [ref=e5]
+  - generic [ref=e7]:
+    - combobox [ref=e8] [cursor=pointer]:
+      - option "nanoKONTROL2 _ SLIDER/KNOB" [selected]
+      - option "Default App Loopback (A)"
+      - option "Default App Loopback (B)"
+    - paragraph [ref=e37]: Run saved. Tempo 104 BPM, streak 0/3.
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - combobox [ref=e11] [cursor=pointer]:
+        - option "C major ascending"
+        - option "C major ascending (2 octaves)"
+        - option "G major ascending"
+        - option "G major ascending (2 octaves)"
+        - option "D major ascending"
+        - option "D major ascending (2 octaves)"
+        - option "E major ascending"
+        - option "E major ascending (2 octaves)"
+        - option "B major ascending"
+        - option "B major ascending (2 octaves)"
+        - option "F major ascending" [selected]
+        - option "F major ascending (2 octaves)"
+      - button "Start run" [active] [ref=e12] [cursor=pointer]
+      - generic [ref=e13] [cursor=pointer]:
+        - checkbox "Auto-restart" [ref=e14]
+        - text: Auto-restart
+      - generic [ref=e15]:
+        - generic [ref=e16]: Click
+        - slider "Click" [ref=e17] [cursor=pointer]: "0.5"
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - strong [ref=e20]: "80"
+          - generic [ref=e21]: Current max BPM
+        - generic [ref=e22]:
+          - strong [ref=e23]: 0/3
+          - generic [ref=e24]: Streak
+    - generic [ref=e39]:
+      - generic [ref=e40]: F
+      - generic [ref=e41]: G
+      - generic [ref=e42]: A
+      - generic [ref=e43]: Bb
+      - generic [ref=e44]: C
+      - generic [ref=e45]: D
+      - generic [ref=e46]: E
+      - generic [ref=e47]: F
+    - generic [ref=e113]:
+      - generic [ref=e114]:
+        - strong [ref=e115]: F
+        - generic [ref=e116]: "1"
+      - generic [ref=e117]:
+        - strong [ref=e118]: G
+        - text: "2"
+      - generic [ref=e119]:
+        - strong [ref=e120]: A
+        - text: "3"
+      - generic [ref=e121]:
+        - strong [ref=e122]: Bb
+        - text: "4"
+      - generic [ref=e123]:
+        - strong [ref=e124]: C
+        - generic [ref=e125]: "1"
+      - generic [ref=e126]:
+        - strong [ref=e127]: D
+        - text: "2"
+      - generic [ref=e128]:
+        - strong [ref=e129]: E
+        - text: "3"
+      - generic [ref=e130]:
+        - strong [ref=e131]: F
+        - text: "4"
+    - generic [ref=e132]:
+      - table [ref=e133]:
+        - rowgroup [ref=e134]:
+          - row [ref=e135]:
+            - columnheader "Note" [ref=e136]
+            - columnheader "Finger" [ref=e137]
+            - columnheader "Timing" [ref=e138]
+            - columnheader "Overlap" [ref=e139]
+            - columnheader "Wrong notes" [ref=e140]
+        - rowgroup [ref=e141]:
+          - row [ref=e142]:
+            - cell "F" [ref=e143]
+            - cell "1" [ref=e144]
+            - cell "—" [ref=e145]
+            - cell "—" [ref=e146]
+            - cell "not played" [ref=e147]
+          - row [ref=e148]:
+            - cell "G" [ref=e149]
+            - cell "2" [ref=e150]
+            - cell "—" [ref=e151]
+            - cell "—" [ref=e152]
+            - cell "not played" [ref=e153]
+          - row [ref=e154]:
+            - cell "A" [ref=e155]
+            - cell "3" [ref=e156]
+            - cell "—" [ref=e157]
+            - cell "—" [ref=e158]
+            - cell "not played" [ref=e159]
+          - row [ref=e160]:
+            - cell "Bb" [ref=e161]
+            - cell "4" [ref=e162]
+            - cell "—" [ref=e163]
+            - cell "—" [ref=e164]
+            - cell "not played" [ref=e165]
+          - row [ref=e166]:
+            - cell "C" [ref=e167]
+            - cell "1" [ref=e168]
+            - cell "—" [ref=e169]
+            - cell "—" [ref=e170]
+            - cell "not played" [ref=e171]
+          - row [ref=e172]:
+            - cell "D" [ref=e173]
+            - cell "2" [ref=e174]
+            - cell "—" [ref=e175]
+            - cell "—" [ref=e176]
+            - cell "not played" [ref=e177]
+          - row [ref=e178]:
+            - cell "E" [ref=e179]
+            - cell "3" [ref=e180]
+            - cell "—" [ref=e181]
+            - cell "—" [ref=e182]
+            - cell "not played" [ref=e183]
+          - row [ref=e184]:
+            - cell "F" [ref=e185]
+            - cell "4" [ref=e186]
+            - cell "—" [ref=e187]
+            - cell "—" [ref=e188]
+            - cell "not played" [ref=e189]
+      - generic [ref=e190]:
+        - strong [ref=e191]: Not approved
+        - paragraph [ref=e192]: 8 wrong notes. Needs no wrong notes and every note within ±57.7 ms — 20.0% of the 288.5 ms between notes (104 BPM, 2 notes per beat).
+        - paragraph [ref=e193]: Start offset could not be fitted for this run.
+        - paragraph [ref=e194]: Overlap is measured and shown above but does not decide the result.
+  - generic [ref=e25]:
+    - heading "History" [level=2] [ref=e26]
+    - table [ref=e195]:
+      - rowgroup [ref=e196]:
+        - row [ref=e197]:
+          - columnheader "When" [ref=e198]
+          - columnheader "Tempo" [ref=e199]
+          - columnheader "Hard" [ref=e200]
+          - columnheader "Timing" [ref=e201]
+          - columnheader "Overlap" [ref=e202]
+          - columnheader "Mean unevenness" [ref=e203]
+          - columnheader "Start offset" [ref=e204]
+          - columnheader "Result" [ref=e205]
+      - rowgroup [ref=e206]:
+        - row [ref=e207] [cursor=pointer]:
+          - cell "8/10/2026, 6:27:01 PM" [ref=e208]
+          - cell "104 BPM" [ref=e209]
+          - cell "8" [ref=e210]
+          - cell "0" [ref=e211]
+          - cell "0" [ref=e212]
+          - cell "—" [ref=e213]
+          - cell "—" [ref=e214]
+          - cell "failed" [ref=e215]
+        - row [ref=e216] [cursor=pointer]:
+          - cell "8/6/2026, 1:14:52 AM" [ref=e217]
+          - cell "88 BPM" [ref=e218]
+          - cell "0" [ref=e219]
+          - cell "0" [ref=e220]
+          - cell "6" [ref=e221]
+          - cell "11.2 ms" [ref=e222]
+          - cell "41.9 ms" [ref=e223]
+          - cell "passed" [ref=e224]
+        - row [ref=e225] [cursor=pointer]:
+          - cell "8/6/2026, 1:14:29 AM" [ref=e226]
+          - cell "88 BPM" [ref=e227]
+          - cell "0" [ref=e228]
+          - cell "0" [ref=e229]
+          - cell "6" [ref=e230]
+          - cell "21.7 ms" [ref=e231]
+          - cell "41.7 ms" [ref=e232]
+          - cell "passed" [ref=e233]
+        - row [ref=e234] [cursor=pointer]:
+          - cell "8/6/2026, 1:14:21 AM" [ref=e235]
+          - cell "88 BPM" [ref=e236]
+          - cell "0" [ref=e237]
+          - cell "0" [ref=e238]
+          - cell "6" [ref=e239]
+          - cell "12.5 ms" [ref=e240]
+          - cell "64.0 ms" [ref=e241]
+          - cell "passed" [ref=e242]
+        - row [ref=e243] [cursor=pointer]:
+          - cell "8/6/2026, 1:14:12 AM" [ref=e244]
+          - cell "88 BPM" [ref=e245]
+          - cell "0" [ref=e246]
+          - cell "0" [ref=e247]
+          - cell "6" [ref=e248]
+          - cell "22.5 ms" [ref=e249]
+          - cell "72.1 ms" [ref=e250]
+          - cell "passed" [ref=e251]
+        - row [ref=e252] [cursor=pointer]:
+          - cell "8/6/2026, 1:14:04 AM" [ref=e253]
+          - cell "88 BPM" [ref=e254]
+          - cell "0" [ref=e255]
+          - cell "0" [ref=e256]
+          - cell "6" [ref=e257]
+          - cell "15.5 ms" [ref=e258]
+          - cell "78.3 ms" [ref=e259]
+          - cell "passed" [ref=e260]
+        - row [ref=e261] [cursor=pointer]:
+          - cell "8/6/2026, 1:13:54 AM" [ref=e262]
+          - cell "84 BPM" [ref=e263]
+          - cell "0" [ref=e264]
+          - cell "0" [ref=e265]
+          - cell "6" [ref=e266]
+          - cell "18.6 ms" [ref=e267]
+          - cell "2.1 ms" [ref=e268]
+          - cell "passed" [ref=e269]
+        - row [ref=e270] [cursor=pointer]:
+          - cell "8/6/2026, 1:13:46 AM" [ref=e271]
+          - cell "84 BPM" [ref=e272]
+          - cell "0" [ref=e273]
+          - cell "0" [ref=e274]
+          - cell "6" [ref=e275]
+          - cell "2.6 ms" [ref=e276]
+          - cell "8.0 ms" [ref=e277]
+          - cell "passed" [ref=e278]
+        - row [ref=e279] [cursor=pointer]:
+          - cell "8/6/2026, 1:13:38 AM" [ref=e280]
+          - cell "84 BPM" [ref=e281]
+          - cell "0" [ref=e282]
+          - cell "0" [ref=e283]
+          - cell "6" [ref=e284]
+          - cell "17.8 ms" [ref=e285]
+          - cell "32.8 ms" [ref=e286]
+          - cell "passed" [ref=e287]
+        - row [ref=e288] [cursor=pointer]:
+          - cell "8/6/2026, 1:13:29 AM" [ref=e289]
+          - cell "84 BPM" [ref=e290]
+          - cell "0" [ref=e291]
+          - cell "0" [ref=e292]
+          - cell "6" [ref=e293]
+          - cell "20.2 ms" [ref=e294]
+          - cell "77.0 ms" [ref=e295]
+          - cell "passed" [ref=e296]
+        - row [ref=e297] [cursor=pointer]:
+          - cell "8/6/2026, 1:13:04 AM" [ref=e298]
+          - cell "80 BPM" [ref=e299]
+          - cell "0" [ref=e300]
+          - cell "0" [ref=e301]
+          - cell "6" [ref=e302]
+          - cell "18.1 ms" [ref=e303]
+          - cell "30.1 ms" [ref=e304]
+          - cell "passed" [ref=e305]
+        - row [ref=e306] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:55 AM" [ref=e307]
+          - cell "80 BPM" [ref=e308]
+          - cell "0" [ref=e309]
+          - cell "0" [ref=e310]
+          - cell "6" [ref=e311]
+          - cell "19.4 ms" [ref=e312]
+          - cell "31.2 ms" [ref=e313]
+          - cell "passed" [ref=e314]
+        - row [ref=e315] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:46 AM" [ref=e316]
+          - cell "80 BPM" [ref=e317]
+          - cell "0" [ref=e318]
+          - cell "0" [ref=e319]
+          - cell "6" [ref=e320]
+          - cell "13.5 ms" [ref=e321]
+          - cell "26.9 ms" [ref=e322]
+          - cell "passed" [ref=e323]
+        - row [ref=e324] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:36 AM" [ref=e325]
+          - cell "80 BPM" [ref=e326]
+          - cell "0" [ref=e327]
+          - cell "0" [ref=e328]
+          - cell "6" [ref=e329]
+          - cell "34.3 ms" [ref=e330]
+          - cell "24.6 ms" [ref=e331]
+          - cell "passed" [ref=e332]
+        - row [ref=e333] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:27 AM" [ref=e334]
+          - cell "80 BPM" [ref=e335]
+          - cell "0" [ref=e336]
+          - cell "0" [ref=e337]
+          - cell "6" [ref=e338]
+          - cell "17.3 ms" [ref=e339]
+          - cell "38.2 ms" [ref=e340]
+          - cell "passed" [ref=e341]
+        - row [ref=e342] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:19 AM" [ref=e343]
+          - cell "80 BPM" [ref=e344]
+          - cell "0" [ref=e345]
+          - cell "0" [ref=e346]
+          - cell "6" [ref=e347]
+          - cell "12.7 ms" [ref=e348]
+          - cell "27.2 ms" [ref=e349]
+          - cell "passed" [ref=e350]
+        - row [ref=e351] [cursor=pointer]:
+          - cell "8/6/2026, 1:12:07 AM" [ref=e352]
+          - cell "80 BPM" [ref=e353]
+          - cell "0" [ref=e354]
+          - cell "1" [ref=e355]
+          - cell "6" [ref=e356]
+          - cell "33.9 ms" [ref=e357]
+          - cell "14.0 ms" [ref=e358]
+          - cell "failed" [ref=e359]
+        - row [ref=e360] [cursor=pointer]:
+          - cell "8/6/2026, 1:11:58 AM" [ref=e361]
+          - cell "80 BPM" [ref=e362]
+          - cell "0" [ref=e363]
+          - cell "0" [ref=e364]
+          - cell "6" [ref=e365]
+          - cell "12.2 ms" [ref=e366]
+          - cell "59.2 ms" [ref=e367]
+          - cell "passed" [ref=e368]
+        - row [ref=e369] [cursor=pointer]:
+          - cell "8/6/2026, 1:11:35 AM" [ref=e370]
+          - cell "80 BPM" [ref=e371]
+          - cell "0" [ref=e372]
+          - cell "0" [ref=e373]
+          - cell "6" [ref=e374]
+          - cell "11.4 ms" [ref=e375]
+          - cell "56.4 ms" [ref=e376]
+          - cell "passed" [ref=e377]
+        - row [ref=e378] [cursor=pointer]:
+          - cell "8/6/2026, 1:11:25 AM" [ref=e379]
+          - cell "80 BPM" [ref=e380]
+          - cell "0" [ref=e381]
+          - cell "0" [ref=e382]
+          - cell "6" [ref=e383]
+          - cell "6.9 ms" [ref=e384]
+          - cell "46.0 ms" [ref=e385]
+          - cell "passed" [ref=e386]
+        - row [ref=e387] [cursor=pointer]:
+          - cell "8/6/2026, 1:11:10 AM" [ref=e388]
+          - cell "80 BPM" [ref=e389]
+          - cell "0" [ref=e390]
+          - cell "0" [ref=e391]
+          - cell "6" [ref=e392]
+          - cell "22.0 ms" [ref=e393]
+          - cell "68.4 ms" [ref=e394]
+          - cell "passed" [ref=e395]
+        - row [ref=e396] [cursor=pointer]:
+          - cell "8/6/2026, 1:10:52 AM" [ref=e397]
+          - cell "80 BPM" [ref=e398]
+          - cell "0" [ref=e399]
+          - cell "0" [ref=e400]
+          - cell "6" [ref=e401]
+          - cell "16.6 ms" [ref=e402]
+          - cell "80.6 ms" [ref=e403]
+          - cell "passed" [ref=e404]
+  - generic [ref=e28]:
+    - heading "Dev tools" [level=2] [ref=e29]
+    - generic [ref=e30]:
+      - generic [ref=e31] [cursor=pointer]:
+        - checkbox "Use computer keyboard as input" [ref=e32]
+        - text: Use computer keyboard as input
+      - generic [ref=e33] [cursor=pointer]:
+        - checkbox "Show keyboard during test" [checked] [ref=e34]
+        - text: Show keyboard during test
+      - generic [ref=e35] [cursor=pointer]:
+        - checkbox "Practice tempo (not scored)" [ref=e36]
+        - text: Practice tempo (not scored)

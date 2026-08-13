@@ -17,6 +17,10 @@ const testConfig: AppConfig = {
     tempoIncrementBpm: 4,
     failedRunBehavior: 'reset_streak'
   },
+  recommendation: {
+    clearOctaves: 1,
+    clearDirections: ['ascending', 'descending']
+  },
   seedInitialTempoBpm: 60,
   notesPerBeat: 1
 }
@@ -118,6 +122,89 @@ describe('GET /api/exercises', () => {
         (step: { fingerNumber: number }) => step.fingerNumber
       )
     ).toEqual([3, 1, 2, 3, 4, 1, 2, 3])
+
+    await app.close()
+    sqlite.close()
+  })
+
+  it('recommends the first scale in progression order on a fresh catalog', async () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+    seedCatalog(sqlite, testConfig)
+
+    const app = buildApp(sqlite, testConfig)
+    const response = await app.inject({ method: 'GET', url: '/api/exercises' })
+    const body = response.json()
+
+    // Nothing has advanced, so nothing is cleared and the trail starts at
+    // its first node.
+    expect(body.recommendedScaleSlug).toBe('c-major')
+    // Every exercise carries its immutable seeded tempo, which is what makes
+    // "has this advanced?" answerable at all.
+    expect(body.groups[0].scales[0].exercises[0].initialTempoBpm).toBe(60)
+
+    await app.close()
+    sqlite.close()
+  })
+
+  it('moves the recommendation on once both gating directions have advanced', async () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+    seedCatalog(sqlite, testConfig)
+    const app = buildApp(sqlite, testConfig)
+
+    const advance = (direction: string, octaves: number) =>
+      sqlite
+        .prepare(
+          `UPDATE exercise_progress SET current_tempo_bpm = 64
+           WHERE exercise_id = (
+             SELECT e.id FROM exercises e
+             JOIN scales s ON s.id = e.scale_id
+             WHERE s.slug = 'c-major' AND e.direction = ? AND e.octaves = ?
+           )`
+        )
+        .run(direction, octaves)
+
+    // One direction is not enough.
+    advance('ascending', 1)
+    let body = (
+      await app.inject({ method: 'GET', url: '/api/exercises' })
+    ).json()
+    expect(body.recommendedScaleSlug).toBe('c-major')
+
+    // Neither is the two-octave pair, which never gates.
+    advance('ascending', 2)
+    advance('descending', 2)
+    body = (await app.inject({ method: 'GET', url: '/api/exercises' })).json()
+    expect(body.recommendedScaleSlug).toBe('c-major')
+
+    // Completing the one-octave pair clears the node and the recommendation
+    // steps to the next scale in progression order.
+    advance('descending', 1)
+    body = (await app.inject({ method: 'GET', url: '/api/exercises' })).json()
+    expect(body.recommendedScaleSlug).toBe('g-major')
+
+    await app.close()
+    sqlite.close()
+  })
+
+  it('recommends nothing once every scale is cleared', async () => {
+    const sqlite = new Database(':memory:')
+    applyMigrations(sqlite)
+    seedCatalog(sqlite, testConfig)
+    const app = buildApp(sqlite, testConfig)
+
+    sqlite
+      .prepare(
+        `UPDATE exercise_progress SET current_tempo_bpm = 64
+         WHERE exercise_id IN (SELECT id FROM exercises WHERE octaves = 1)`
+      )
+      .run()
+
+    const body = (
+      await app.inject({ method: 'GET', url: '/api/exercises' })
+    ).json()
+    expect(body.recommendedScaleSlug).toBeNull()
 
     await app.close()
     sqlite.close()
