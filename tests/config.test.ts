@@ -9,6 +9,8 @@ const validEnv = {
   EXERCISE_NOTES_PER_BEAT: '2',
   PROGRESSION_TEMPO_INCREMENT_BPM: '4',
   PROGRESSION_FAILED_RUN_BEHAVIOR: 'reset_streak',
+  RECOMMENDATION_CLEAR_OCTAVES: '1',
+  RECOMMENDATION_CLEAR_DIRECTIONS: 'ascending,descending',
   SEED_INITIAL_TEMPO_BPM: '60'
 }
 
@@ -18,6 +20,47 @@ describe('loadConfig', () => {
     expect(config.progression.failedRunBehavior).toBe('reset_streak')
     expect(config.seedInitialTempoBpm).toBe(60)
     expect(config.scoring.timingToleranceNoteFraction).toBe(0.1)
+  })
+
+  it('parses the recommendation clear condition', () => {
+    const config = loadConfig(validEnv)
+    expect(config.recommendation).toEqual({
+      clearOctaves: 1,
+      clearDirections: ['ascending', 'descending']
+    })
+  })
+
+  it('accepts a single-direction clear condition', () => {
+    const config = loadConfig({
+      ...validEnv,
+      RECOMMENDATION_CLEAR_DIRECTIONS: 'ascending'
+    })
+    expect(config.recommendation.clearDirections).toEqual(['ascending'])
+  })
+
+  it('rejects an unknown direction', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnv,
+        RECOMMENDATION_CLEAR_DIRECTIONS: 'ascending,sideways'
+      })
+    ).toThrow(/RECOMMENDATION_CLEAR_DIRECTIONS/)
+  })
+
+  it('rejects a duplicated direction', () => {
+    expect(() =>
+      loadConfig({
+        ...validEnv,
+        RECOMMENDATION_CLEAR_DIRECTIONS: 'ascending,ascending'
+      })
+    ).toThrow(/duplicate/)
+  })
+
+  it('rejects an octave count the catalog cannot supply', () => {
+    // 3 would leave every scale permanently and silently uncleared.
+    expect(() =>
+      loadConfig({ ...validEnv, RECOMMENDATION_CLEAR_OCTAVES: '3' })
+    ).toThrow(/RECOMMENDATION_CLEAR_OCTAVES/)
   })
 
   it('throws when a required value is missing', () => {

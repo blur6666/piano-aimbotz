@@ -31,6 +31,11 @@ export const ExerciseSchema = Type.Object({
   // keyboard; step count follows from it as octaves * 7 + 1.
   octaves: Type.Integer({ minimum: 1, maximum: 2 }),
   currentTempoBpm: Type.Integer({ minimum: 1 }),
+  // The immutable seeded tempo. Sent because it is the only way to tell an
+  // exercise that has advanced from one that has never been played -- the
+  // streak below resets to zero on the run that raises the tempo, so it
+  // cannot distinguish them (src/domain/progression/recommendation.ts).
+  initialTempoBpm: Type.Integer({ minimum: 1 }),
   // The beat grid the next run will be played and scored against: 2 for
   // straight eighths, 1 for quarters. The client needs it to schedule the
   // metronome and lay out the timeline; the server still applies its own
@@ -55,7 +60,13 @@ export const ProgressionGroupSchema = Type.Object({
 })
 
 export const ExerciseListResponseSchema = Type.Object({
-  groups: Type.Array(ProgressionGroupSchema)
+  groups: Type.Array(ProgressionGroupSchema),
+  // The scale the app tells the player to work on now: the first one not yet
+  // cleared, in the progression order the groups above are already sorted
+  // into. Null when every scale is cleared. Advisory only -- every exercise
+  // stays selectable, and the server enforces no lock (docs/SPEC.md,
+  // "Product vision").
+  recommendedScaleSlug: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
 })
 
 export type MidiEvent = Static<typeof MidiEventSchema>

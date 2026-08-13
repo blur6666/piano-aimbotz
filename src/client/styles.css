@@ -56,6 +56,24 @@ h1 {
   font-size: 20px;
   line-height: 1.5;
 }
+/* The next-scale signpost (docs/SPEC.md, "Advancement rule"). Advisory, so
+   it reads as a note rather than a control: nothing here is clickable and
+   nothing it names is locked. */
+.recommendation {
+  margin: 14px 0 0;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.recommendation strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+.recommendation .badge {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--accent);
+}
 .panel {
   border: 1px solid var(--border);
   background: var(--surface);

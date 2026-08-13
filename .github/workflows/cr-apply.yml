@@ -46,6 +46,8 @@ jobs:
       EXERCISE_NOTES_PER_BEAT: '2'
       PROGRESSION_TEMPO_INCREMENT_BPM: '4'
       PROGRESSION_FAILED_RUN_BEHAVIOR: 'reset_streak'
+      RECOMMENDATION_CLEAR_OCTAVES: '1'
+      RECOMMENDATION_CLEAR_DIRECTIONS: 'ascending,descending'
       SEED_INITIAL_TEMPO_BPM: '80'
     steps:
       - name: Acknowledge the command
