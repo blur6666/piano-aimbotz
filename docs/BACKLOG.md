@@ -1,5 +1,12 @@
 # BACKLOG.md
 
+- **[TODO] Show notes played by the MIDI piano**
+  - Display onscreen the notes played by the MIDI piano even when no exercise is running.
+
+- **[TODO] Manual BPM selection shouldn't count as progress**
+  - When the user manually selects the BPM in the field on the page, it shouldn't be counted as progress.
+  - There should be a button "I'm just testing the app" that ignores the results (maybe flagging instead of discarding).
+
 ## ❓ Clarification Needed (Human to define before agent execution)
 
 - **[CLARIFICATION] Extra-note debounce**
