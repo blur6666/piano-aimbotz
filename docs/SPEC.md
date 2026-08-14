@@ -1,280 +1,184 @@
-# Piano scale trainer — spec
+# Piano Scale Trainer — Specification
 
-## Project context
+## Project Context
 
 **This is a hobby project.** Its purposes, in order:
 
 1. Help me practise piano scales. I will actually use this.
-2. Give me practice building something with persistence, migrations, tests and CI — my existing projects are all frontend-only, and this is the gap I'm deliberately closing.
+2. Give me practice building something with persistence, migrations, tests, and CI — my existing projects are all frontend-only, and this is the gap I'm deliberately closing.
 3. Serve as a portfolio piece.
 
-**One user: me.** No multi-tenancy. No auth beyond the bare minimum. No availability requirements, no SLA. If it breaks I fix it.
+**One user: me.** No multi-tenancy. No auth beyond the bare minimum. No availability requirements, no SLA. If it breaks, I fix it.
 
-**Concept:** keybr.com, but for piano scales. Play a scale against a metronome, get measured, advance when you're clean enough.
+**Concept:** `keybr.com`, but for piano scales. Play a scale against a metronome, get measured with mathematical precision, and advance as you build speed and accuracy.
 
-**Why this project:** it's the missing third piece next to two existing tools — `circle-of-fifths` (explore) and `piano-music-theory-sandbox` (identify). This one is *practice*. It's also the first project of mine that genuinely needs persistence: without stored per-step history there's no adaptation and no progression, so the database isn't decoration.
+**Why this project:** It's the missing third piece next to two existing tools — `circle-of-fifths` (explore) and `piano-music-theory-sandbox` (identify). This one is _practice_. It is also the first project of mine that genuinely needs persistence: without stored per-step history there is no progression, so the database is an essential core component.
 
-**Document roles:** this file is the source of truth for product intent and scope. `ARCHITECTURE.md` is the source of truth for *how* — schema, contracts, rationale — once a decision below has been turned into code. `AGENTS.md` is operational (how to run/check). Don't duplicate implementation detail back into this file.
-
----
-
-## Limitations
-
-**Do not propose:** microservices, event sourcing, CQRS, message queues, Kubernetes, service meshes, caching layers, GraphQL federation, DDD aggregates, hexagonal/clean-architecture ceremony, or anything justified by a problem I don't have. Boring technology, one deployable, one database.
-
-**KISS is an explicit stance**, consistent with my other projects: no resilience layers, no graceful degradation, no edge-case armour. I tinker and fix breakage myself. Where a simple thing and a general thing both work, pick the simple one and write down why.
-
-**But small does not mean careless.** The data model, the migrations and the tests *are* the point — they're the skills I'm building and the thing a reviewer would actually look at. Specifically I want:
-
-- a schema whose decisions I can defend in writing
-- real migrations, including at least one that alters an existing table
-- tests that encode domain rules, not just HTTP status codes
-- CI running those tests on push
-
-**The code will be written by AI agents against this spec**, so favour explicit contracts, clear file boundaries and stated invariants over cleverness. Things that must not be rediscovered should be written down.
+**Document roles:** This file is the source of truth for product intent and scope. `ARCHITECTURE.md` is the source of truth for _how_ — schema, contracts, rationale — once a decision below has been turned into code. `AGENTS.md` is operational (how to run/check). Implementation details belong in `ARCHITECTURE.md`, not duplicated here.
 
 ---
 
-## Product vision
+## Technical Constraints & Stance
 
-**It is both a tool and a toy.** As a tool, it's a guided practice path: start at the easiest scale (C major), and get told when you're actually ready to move on rather than guessing. As a toy, that same guidance is deliberately gamified — visible streaks, a climbing tempo number, a scale list you're working through — because the point is to stay motivated to keep practising, not just to have accurate measurement for its own sake.
+**Do not propose:** microservices, event sourcing frameworks, CQRS, message queues, Kubernetes, service meshes, caching layers, GraphQL federation, DDD aggregates, hexagonal/clean-architecture ceremony, or anything justified by problems this project does not have. Boring technology, one deployable, one SQLite database.
 
-**Two tracked dimensions: speed and accuracy.** Speed is tempo. Accuracy is faults, hard and soft (see "Faults"). Progress in either one is gated by the other:
+**KISS is an explicit stance:** no resilience layers, no graceful degradation, no edge-case armour. I tinker and fix breakage myself. Where a simple thing and a general thing both work, pick the simple one and write down why.
 
-- Tempo only climbs when a run is clean. This is what keeps speed from being gamed by luck: a single fast clean run doesn't move you forward, three consecutive ones do (concrete rule under "Advancement rule").
-- Moving to the next scale is guided by the same signal, but it is **advisory, not enforced** — the app recommends the next scale once you look ready on the current one, but nothing locks the others. There is no "mastered" flag or unlock table in v1. This is intentional, not an oversight: v1 has no defensible definition of scale mastery to gate on, and free navigation is simpler and still serves the same motivational purpose as long as the recommendation is visible.
+**Small does not mean careless.** The data model, the migrations, and the tests _are_ the point — they're the skills I'm building and the standard a reviewer would evaluate. Specifically:
 
-**Beyond v1: analytical practice focus.** Beyond pass/fail and a tempo number, the eventual goal is to tell the player *where* they're going wrong in a way that's useful to fix — e.g. surfacing that they consistently rush the same step, or slow down at a specific transition (like the thumb-tuck in Group 1 fingering), or miss most often in a particular situation. This requires comparing *signed* timing deviation and fault location across many runs of the same exercise, not just the per-run aggregate `ARCHITECTURE.md` currently stores. It is **explicitly deferred** — not designed in v1 — but it is the reason raw MIDI events are stored forever instead of only aggregates (see "Data model philosophy" below): every future analysis, including this one, replays from the same untouched history.
+- A relational schema whose decisions can be defended in writing
+- Real hand-written SQL migrations, including column additions and table alterations
+- Tests that encode domain rules, not just HTTP status codes
+- CI running those tests automatically on push
 
----
-
-## Deliverables
-
-Two slices. **v1** is the product as specified: everything under it is decided and implementable today. **v2** is direction — it exists so agents and future me know which way things are meant to grow, and nothing in it may be built before it has been designed and moved up into v1.
-
-There is no separate "mvp" tier below v1. v1 is deliberately small and its thresholds are provisional; that is described in its goal rather than split into another slice.
-
-### v1 — the guided practice loop
-
-**Done when:** every right-hand major scale can be played ascending and descending against the metronome, a completed run is captured and scored end to end, three consecutive clean runs raise that exercise's tempo, raw events are stored so old runs can be re-scored, and the schema/migrations/domain tests/CI listed under "Limitations" actually exist.
-
-Most of that is already true — v1 is largely built. This is the acceptance bar, not a to-do list; don't open work to "implement v1".
-
-#### Goal
-
-Practise the right-hand major scales against a metronome and get a measured verdict on every run. Every implemented scale is selectable from the start — v1 recommends the next one but never locks any of them (see "Product vision"). Scored runs happen at the tempo the server holds for that exercise, and three consecutive clean runs raise it.
-
-**v1 is a sandbox in one specific sense: the numbers are placeholders.** The advancement rule below is fixed and real, but the constants it depends on — starting tempo, tempo increment, timing and overlap tolerances, how many soft faults a clean run may still contain — are guesses until there is enough real session data to tune them (see "Out of scope"). Expect them to move; don't treat any committed value as a product decision.
-
-**Accuracy is fault counts, not a percentage.** There is no "≥90% of notes correct" gate anywhere in v1. A run passes on zero hard faults with soft faults under threshold (see "Advancement rule"), because a percentage flattens a wrong note and a slightly late note into the same number and those are not the same mistake.
-
-**Free tempo is a practice aid, never an advancement path.** A practice mode may run any exercise at any tempo — for warming up, or for trying something well above the current level — but those runs are not submitted, not stored, and do not touch progress. Every *scored* run uses the server-owned tempo for its exercise; the browser does not get to pick one. This is load-bearing: if the player chose the tempo of a scored run, "late" would stop being a subtraction against a known beat grid and BPM would become trivially gameable.
-
-#### Exercise shape and motion
-
-- **Right hand only.** May be revisited later.
-- **One or two octaves only.** Every scale exists at both counts: the fingering reference charts two octaves for all twelve, so nothing is held back for want of a source.
-- **Ascending and descending motion only.**
-  - No arpeggios and no broken patterns.
-- **Ascending and descending are scored separately.**
-  - The thumb movement differs — tuck under going up, cross over coming down — and most players are measurably worse in one direction.
-  - Do not aggregate their data together.
-- **Fixed tempo per run.**
-  - Tempo that varies *within* a run is wanted later. Free tempo for scored runs, never — see the goal above.
-- **Display both the scale and the fingering** during the run.
-- **Optional auto-repeat:** runs chain one after another until stopped, separated by one beat of gap and then the usual count-in. Chaining continues whether a run passed or failed — the point is staying in the loop, not being rewarded for a streak.
-- **Fingering source of record: `docs/SCALES_FINGERING_REFERENCE.md`** (right-hand major table).
-  - Its charts are two octaves; one-octave fingering is the first seven fingers, ending on the higher finger of any "X/Y" choice.
-  - A single authority is used and the fingering table is treated as data rather than something recited. This is resolved, not open — see `ARCHITECTURE.md` for how the catalog consumes it.
-  - The note and finger cells in "Progression order" below are illustrative. **Where they and the reference disagree, the reference wins.**
-
-#### Progression order
-
-Scales are ordered the way piano lessons order them: by **fingering pattern**, not by accidental count. The goal is to minimise how many physical patterns must be memorised, and to meet them in a useful order — fewer new shapes per scale means faster progress and less discouragement. C major is the first scale a player sees.
-
-This order drives the recommendation and the presentation order only. It is not a lock (see "Product vision"). This section owns the order and the reason for it; the notes and fingerings themselves belong to `docs/SCALES_FINGERING_REFERENCE.md`.
-
-**Group 1 — shared fingering: C, G, D, A, E, B.**
-
-- Six scales, one right-hand pattern: **1-2-3-1-2-3-4-5**. Learn the shape once.
-
-| Key | Notes | Fingering |
-| --- | --- | --- |
-| C | `C  D  E  F  G  A  B  C` | 1-2-3-1-2-3-4-5 |
-| G | `G  A  B  C  D  E  F# G` | 1-2-3-1-2-3-4-5 |
-| D | `D  E  F# G  A  B  C# D` | 1-2-3-1-2-3-4-5 |
-| A | `A  B  C# D  E  F# G# A` | 1-2-3-1-2-3-4-5 |
-| E | `E  F# G# A  B  C# D# E` | 1-2-3-1-2-3-4-5 |
-| B | `B  C# D# E  F# G# A# B` | 1-2-3-1-2-3-4-5 |
-
-- B is a left-hand exception, not a right-hand one — so for a right-hand v1 it belongs in Group 1. F is the reverse.
-
-**Group 2 — the white-key exception: F.**
-
-- The only right-hand exception among the white-key scales.
-- The thumb avoids the black key, so the pattern shifts and the octave ends on 4 rather than 5.
-
-| Key | Notes | Fingering |
-| --- | --- | --- |
-| F | `F G A Bb C D E F` | 1-2-3-4-1-2-3-4 |
-
-**Group 3 — black-key scales: B♭, E♭, A♭, D♭, G♭.**
-
-- Ergonomically the easiest to play — the longer fingers (2, 3, 4) sit naturally on the raised black keys while the thumb and pinky reach the white keys below — despite looking intimidating on the page.
-
-| Key | Notes | Fingering |
-| --- | --- | --- |
-| Bb | `Bb C  D  Eb F  G  A Bb` | 2-1-2-3-1-2-3-4 |
-| Eb | `Eb F  G  Ab Bb C  D Eb` | 3-1-2-3-4-1-2-3 |
-| Ab | `Ab Bb C  Db Eb F  G Ab` | 3-4-1-2-3-1-2-3 |
-| Db | `Db Eb F  Gb Ab Bb C Db` | 2-3-1-2-3-4-1-2 |
-| Gb | `Gb Ab Bb B  Db Eb F Gb` | 2-3-4-1-2-3-1-2 |
-
-**But these do not share a pattern.** Each has its own right-hand fingering, resolved with provenance in `docs/SCALES_FINGERING_REFERENCE.md`:
-
-- B♭, D♭ and G♭ all start on finger 2.
-- E♭ and A♭ start on finger 3.
-- Five separate memorisations, made easier by hand position rather than by a common shape.
-
-Groups 1 and 3 are therefore grouped on different principles: Group 1 is "one shape, many scales", Group 3 is "many shapes, all comfortable". **In v1 that difference is presentational only.** Advancement is per exercise (see "Advancement rule"); crossing a group boundary changes nothing mechanically, it only changes what the app has to say to the player — the next scale in Group 1 is a shape they already own transposed, while the first scale in Group 3 is a new one to memorise. There is no cross-group advancement rule in v1 and none is implied here; don't invent one.
-
-**F♯ and G♭ are one entry, not two.** Identical keys, identical fingering. Fingering is physical; the spelling difference is notational only. They are enharmonic. Twelve entries total.
-
-#### Advancement rule
-
-Tempo is the progression axis; accuracy is the gate. Start low (e.g. around 60bpm — the real value is a deferred constant, see "Out of scope") and climb. Advance when the player achieves **three consecutive runs with zero hard faults and soft faults under a threshold**. The exact numbers are unknowable without real data — they get tuned once sessions exist (see "Out of scope"). This design cannot be gamed by slowing down, because slowing down is the failure state rather than a way to pass.
-
-Advancing to the *next scale* is a recommendation the app surfaces, not a gate (see "Product vision"). Exercises are presented in progression order, and the one to be working on is **the first scale that isn't cleared yet**. That scale is named in the interface — a badge on it, and copy saying it is the one to work on now — rather than left implicit in the ordering.
-
-**Cleared, for the purpose of the recommendation only.** A scale is cleared once its one-octave ascending *and* its one-octave descending exercise have each raised their tempo at least once. Two-octave variants are available but never gate, matching the node clear condition already decided for the trail under "v2 — direction". When every scale is cleared there is no recommendation, and the app says so rather than pointing at nothing.
-
-Two things this deliberately is not. It is **not a gate**: every scale stays selectable, and clearing one unlocks nothing, because there is still no defensible definition of mastery to gate on. And "cleared" is **not** "mastered" — it is the weakest honest signal available from stored progress, chosen because the consecutive-clean-run streak resets to zero on every tempo advance and therefore cannot distinguish a scale you have advanced from one you have never played.
-
-Like every number under "Goal", the composition of the clear condition is a placeholder to be tuned against real session data, so it is built as configuration rather than written into a rule.
-
-Mastered scales reappearing in rotation once other scales are learned is optional, not v1.
-
-#### The run
-
-- Metronome plays a **4-beat count-in**, then **continues through the exercise**. This is a training tool, not a test — the click stays on.
-- Expected sequence for C ascending: C D E F G A B C.
-- Because tempo is fixed and the count-in is known, the beat grid is known. Every note's timing deviation is a subtraction against that grid, not an inference.
-
-#### Faults
-
-**Hard fault** — binary, per note:
-
-- A note played out of order (wrong key, missed accidental).
-- An extra note. Includes duplicates and glancing an adjacent key. If this proves too aggressive in practice, add a debounce later rather than softening the rule now (see "Out of scope").
-
-**Soft fault, type 1 — timing:** deviation in milliseconds from the expected beat. Each note's deviation is *graded*, not passed or failed — one late note never fails a run by itself. What gates a clean run is the **count** of notes outside tolerance (see "Advancement rule").
-
-**Soft fault, type 2 — overlap:** the previous note hasn't been released before the next sounds. Legato bleed. This is one of the most common scale technique problems and it does *not* correlate with timing, so it's worth capturing separately. Requires storing note-off as well as note-on.
-
-**Recovery handling:** a hard fault does **not** end the run. The run continues, but a window of notes following the fault is **excluded from timing statistics** — the note after a stumble is late for reasons that have nothing to do with timing, and including it contaminates the evenness measurement.
-
-#### Velocity
-
-**Captured, stored, and ignored by v1 scoring.** No accent-on-the-downbeat expectations, no dynamics gate, no accent logic — velocity changes no v1 result. It is stored anyway because later analysis may want it. Scoring it at all needs a sane calibration first, and that is a v2 decision, not something to add opportunistically.
-
-#### Output shape
-
-Per scale, per direction, per step: the number of hard and soft faults. That is the *product grain* — what the player is entitled to see about a run. The wire and storage shapes (run aggregates, streak, tempo after the run) live in `ARCHITECTURE.md` and are the authority; do not derive a second DTO from this paragraph.
-
-Notes and fingering are **fixed per scale**, so within a single scale, step index and finger number carry the same information. Storing the finger only matters if you later want to ask cross-scale questions — position 4 is finger 1 in C major but finger 4 in F major.
-
-#### Data model philosophy
-
-Store raw events, not derived aggregates: **the number of messages in a run is unknown in advance** — extra notes, missed notes, and the fact that note-on and note-off are separate messages all break any one-to-one mapping onto the expected steps. The expected sequence is already known from the scale definition, so matching played events against expected steps is **analysis, not storage**. Store what happened; derive what it means.
-
-This also settles the raw-versus-aggregate question generally: keep raw events so old sessions can be re-analysed whenever the scoring logic improves, or whenever a new kind of analysis (like the rushing/slowing detection under "Product vision") gets built. Derived per-step stats may be materialised into their own table later if query performance calls for it.
-
-The realized schema lives in `ARCHITECTURE.md` and is the authority — this section states the storage philosophy behind it, not the table layout.
+**The code is written and reviewed by AI agents against this spec.** Favour explicit contracts, clear module boundaries, and stated invariants over cleverness. Things that must not be rediscovered should be written down plainly.
 
 ---
 
-### v2 — direction
+## Product Vision
 
-Direction only. Nothing here is designed, and none of it may be implemented until it has been specified above.
+**It is both a tool and a toy.**
 
-**Done when:** not defined yet. Each item below has to earn a v1-style section — including a "done" line — before it becomes work.
+- **As a tool**, it is a guided practice path: start at the easiest scale (C major), practice against a steady beat, and get told objectively when you are ready to advance.
+- **As a toy**, guidance is gamified — visible streaks, a climbing tempo, a progression list to master, and immediate feedback on where you were clean and where you stumbled.
 
-- **Real gates instead of recommendations.** v1 recommends the next scale and locks nothing, because it has no defensible definition of scale mastery (see "Product vision"). If real session data produces one, v2 may turn the recommendation into an actual gate: climb BPM at good accuracy on the current scale until the next one unlocks, no free jumping. That change would **explicitly supersede** the advisory bullet in "Product vision", and superseding it means editing that bullet in this file — until then, advisory stands and no unlock table gets built on the strength of this paragraph.
+**Two tracked dimensions: speed and accuracy.**
 
-  **Decided already, and still v2: the shape of the trail.** The gate is undecided; the path it would run along is not. A **world is a progression group**, a **node is a scale**, and a world's trail is its scales in progression order — so the first world is Group 1, six nodes, C through B. A node's **provisional** clear condition is one ascending and one descending exercise at one octave, with the two-octave variants available but never gating. Like every number under "Goal", that is a placeholder rather than a product decision: how many exercises a node demands, in which directions, at which octave counts, are all guesses until there is real session data to tune them against. The reasoning behind this particular guess is only that requiring all four variants triples the first world's length and makes the trail drag exactly where motivation matters most, while requiring ascending alone would sit oddly beside scoring the two directions separately. Expect it to move, and build it as configuration rather than as a rule.
-
-  **Transitions between nodes are derived from that order, never stored as edges.** In a total order every node has exactly one predecessor, so a transition *is* an attribute of its destination, and a table of from/to pairs would be a second copy of the ordering that nothing can constrain — a unique position column cannot be made to disagree with itself, whereas an edge table can grow cycles, forks and orphans while every row still looks valid. What a crossing *means* is likewise derived: within a group it is a shape the player already owns, transposed; across a group boundary it is a new shape to memorise (see "Progression order"). Edges earn their own storage only if the trail ever stops being a line — branches, merges, optional side-paths — and none of that is specified here. The player's position along a trail is derived from existing per-exercise progress for the same reason the paragraph above forbids an unlock table.
-
-  **Still open:** the clear condition in every part — the composition above as much as the tempo and clean-run bar that calls a node done. These are tuned constants like the others, not catalog data, and they wait on the same real session data as the rest of them.
-- **Tuned constants.** The placeholder thresholds under "Goal" replaced with values chosen from real sessions rather than guessed.
-- **Analytical practice focus.** Telling the player *where* they go wrong, not just whether the run passed. Described under "Product vision"; the raw-event storage in v1 exists to make it possible.
-- **Tempo that varies within a run** — accelerating and decelerating exercises. Still server-owned, still not free tempo.
-- **Rotation.** Learned scales reappearing periodically once later scales are in progress.
-- **Sheet music rendering.** ~~Direction~~ — **promoted and specified under "v3" below.** It was always the most likely item here to land early precisely because it's cheap, and it has now earned its own section. This bullet stays only so the item has one home and not two; the v3 section is the authority.
+- **Speed** is tempo (BPM).
+- **Accuracy** is fault counts (hard and soft).
+- **Progress in either dimension is gated by the other**: tempo only climbs when runs are consistently clean. A single fast run does not move you forward; three consecutive clean runs do.
 
 ---
 
-### v3 — notation, and the minor scales
+## Deliverables by Phase
 
-**Unlike v2 above, these are specified, not direction.** Each section below has a "Done when" line and may be built. The theme is that the player should stop being a person who can only play scales: they should be reading them at the same time, and they should have more than one flavour of scale to read.
-
-They are written in the order they get built. The score comes first because it is the cheapest and touches nothing but the browser; the minor scales come last because they are the only item here that changes the database.
-
-#### Interactive score
-
-**Done when:** every exercise draws its own notes on a staff directly above the on-screen keyboard, and the notes the player actually strikes are marked on that staff while they play.
-
-The point is that movement and notation get learned in the same session rather than months apart. The player is already looking at the keyboard during a run; putting the same notes on a staff a few centimetres above it is the cheapest way to make the notation start meaning something.
-
-- **Treble clef only.** V1 is right hand only, so a bass clef would be an empty staff.
-- **Above the keyboard, on every run** — scored and practice alike. It is not a reward for finishing, it is there while playing.
-- **The notation must be correct**, not merely suggestive: the key signature comes from the scale, rather than accidentals sprinkled on individual notes. The player is being taught to read, and being taught to read something wrong is worse than not showing it.
-- **The live marking is best-effort and gets superseded.** Marking notes as they are struck runs on the same approximate browser timing the live timeline already uses. When the server's assessment arrives it wins, exactly as it already does for the timeline. Do not build a second, more trusted notion of what was played.
-- **Renderer: VexFlow.** Named here only because the choice is settled and shouldn't be relitigated; how it is integrated belongs to `ARCHITECTURE.md`.
-
-**Not in this section:** playback from the score, editing or entering notes, rhythmic notation beyond what the exercise already plays, and any second clef.
-
-#### Note-location drills
-
-**Done when:** *not yet defined — see "Still open" below. This section states intent and may not be built until those questions are closed.*
-
-Starting with the treble clef, teach where the notes actually live on the staff: the mnemonics and the tricks, over a few rounds, so they get memorised rather than looked up. This is the companion to the score above — the score shows notation during practice, this teaches how to read it directly.
-
-This is the one v3 item that is **not a scale run**. It has no metronome grid, no tempo, no fingering, and no MIDI capture window in the sense the rest of the app means it. That difference is the whole risk: the existing `exercises` and `runs` tables describe a timed scale performance, and bending them to also describe a flashcard round would corrupt the clearest part of the schema. If this needs storage, it gets its own.
-
-**Still open**, and each one blocks implementation:
-
-- What a "round" is, how many there are, and what finishing one means.
-- Whether attempts are stored at all. A drill the player repeats until it sticks may be worth nothing once it has stuck.
-- Whether it shares the progression machinery — streaks, tempo, clean runs — or is a standalone mode that touches no progress. The default answer should be standalone until there is a reason otherwise.
-- How it is answered: on the MIDI keyboard, on screen, or both.
-
-#### Minor scales
-
-**Done when:** natural, harmonic and melodic minor are seeded and practisable on the same loop as the majors — both octave counts, both directions, progress tracked per exercise exactly as now — in a stated progression order.
-
-Twelve major scales is a complete beginner path and a short one. Minors are the natural continuation, and all three forms are already charted for the right hand in `docs/SCALES_FINGERING_REFERENCE.md`, so nothing here waits on a source.
-
-- **All three forms: natural, harmonic, melodic.** The reference charts each of them for all twelve keys.
-- **Minor pentatonic is out, and named here so it isn't proposed again.** The reference does not chart it, and the standing rule is that fingerings are taken from the reference and never invented. It becomes available the moment a sourced chart is added, and not before.
-- **Keys are spelled the way they are conventionally notated**, and enharmonic pairs remain one entry — the same decision already made for F♯/G♭ among the majors, for the same reason: fingering is physical and the spelling difference is notational. The consequence is that some raised sevenths are double accidentals, and they must be written correctly rather than simplified away, because the score above is teaching this player to read.
-- **Melodic minor is asymmetric, by design.** It ascends with a raised sixth and seventh and descends as the natural minor — that is the form piano lessons teach, and this app follows piano lessons. So for melodic minor alone, the descending exercise is *not* the mirror image of the ascending one. Fingering still reverses; the notes do not. `ARCHITECTURE.md` currently states mirroring as an unqualified invariant and must be narrowed rather than quietly contradicted.
-- **Minors get their own worlds, appended after the majors.** The existing three groups keep their order and their positions, so adding minors renumbers nothing that already exists.
-- **Ordering principle is unchanged:** by fingering pattern, fewest new shapes first, exactly as under "Progression order". A player who has finished the majors should meet the minor shapes they already own before the ones they don't.
-
-**Still open:** the concrete grouping and order of the minor keys. It is derivable from the reference — the natural minors alone already fall into one large shared-shape group and several singletons — but it must be read off the chart and written down before anything is seeded, not decided while typing catalog data.
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Phase 1 (v1): The Guided Practice Loop & Persistence (Acceptance Bar)  │
+│   • Core Web MIDI & Audio Metronome engine                              │
+│   • 12 Major Scales (1 & 2 octaves, ascending & descending)             │
+│   • Raw event ingestion & deterministic scoring                         │
+│   • 3-streak tempo progression & advisory next-scale recommendation     │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Phase 2 (v2): Gamified Campaign & Analytical Focus (Direction)          │
+│   • Merit-based unlock gates (tuned against real session data)          │
+│   • Analytical heatmaps (signed timing deviations, thumb-tuck stumbles) │
+│   • Accelerando/ritardando tempo variation                              │
+│   • Spaced repetition rotation of mastered scales                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Phase 3 (v3): Interactive Notation & Minor Scales (Specified Extension) │
+│   • Real-time interactive staff notation via VexFlow (treble clef)      │
+│   • Isolated note-location reading drills                               │
+│   • Natural, Harmonic, and Melodic Minor (with asymmetric melodic form) │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Out of scope
+## Phase 1 (v1) — The Core Guided Practice Loop
 
-**Not v1, and not planned:** a hard scale-lock / unlock table, or a "mastered" flag. v1 recommends the next scale; it does not gate. This is a v2 *candidate* only, under the conditions stated there.
+**Acceptance bar:** Every right-hand major scale can be played ascending and descending against the metronome, runs are captured and scored end to end, three consecutive clean runs raise that exercise's tempo, raw events are stored for historical re-scoring, and migrations/tests/CI run green.
 
-**Not v1, each its own project or later increment:** sight-reading, rhythm exercises beyond straight eighths/quarters, two hands, more than two octaves, arpeggios, free tempo for scored runs.
+### 1. Exercise Shape and Motion
 
-**Deferred, to be decided from real session data rather than guessed up front:**
+- **Right hand only.**
+- **One or two octaves.** Every scale exists at both counts (octave count is selectable).
+- **Ascending and descending motion only.** No arpeggios or broken patterns in v1.
+- **Ascending and descending are scored separately:** The thumb movement differs (tuck under going up vs. cross over coming down), and player dexterity differs by direction.
+- **Fixed tempo per run:** Scored runs happen at the server-owned tempo for that exercise.
+- **Fingering source of record:** [`docs/SCALES_FINGERING_REFERENCE.md`](file:///c:/Users/bcint/proj/dev/bakinfernoaimbotz/docs/SCALES_FINGERING_REFERENCE.md). One-octave fingering takes the first 7 fingers, ending on the higher finger of any choice. Descending is the exact reverse of ascending.
 
-- **Failed-run behavior and thresholds.** Whether a failed run resets the consecutive-clean-run counter or steps the tempo down, and the actual soft-fault tolerances, timing/overlap tolerances, tempo increment, tempo decrement, and starting tempo. These are tuning parameters, not architecture — see `ARCHITECTURE.md`'s "Configuration and deferred decisions."
-- **Extra-note debounce.** Deferred by decision; will likely need revisiting once there's real data on how aggressive the current all-extras-are-hard-faults rule feels in practice.
+### 2. The Metronome and Beat Grid
 
-**One thing is now blocked on a missing fingering source: minor pentatonic.** `docs/SCALES_FINGERING_REFERENCE.md` charts two octaves for all twelve major scales — all seeded at both octave counts — and for natural, harmonic and melodic minor in all twelve keys, so everything specified under "v3" is covered except the pentatonic, which appears nowhere in it. That one stays unbuildable until a sourced chart is added to the reference. The standing rule is unchanged and applies to anything the reference does *not* cover: agents must take fingerings from it, never invent them.
+- Metronome plays a **4-beat count-in**, then continues through the exercise.
+- **Beat grids supported:** Straight quarters (`notesPerBeat: 1`) or straight eighths (`notesPerBeat: 2`).
+- Because tempo and count-in are known, the beat grid is mathematically exact. Every note's timing deviation is a direct subtraction against that grid, not an inference.
+
+### 3. Practice Mode vs. Scored Mode
+
+- **Scored runs** use the server-held tempo and update progression atomically on completion.
+- **Practice mode** allows free tempo selection for warmups or high-tempo experiments. Practice runs are not submitted to the progress table and never advance streaks or tempo.
+
+### 4. Fault Classification and Scoring
+
+**Accuracy is evaluated in discrete fault counts, never a percentage.** A percentage improperly flattens a wrong pitch and a 10ms timing imperfection into the same number.
+
+- **Hard fault (binary, per note):**
+  - Wrong pitch (wrong key, missed accidental).
+  - Extra note (unintended key strike, duplicate strike, or adjacent key graze).
+  - Missed note.
+- **Soft fault, type 1 — Timing deviation:**
+  - Deviation in microseconds from the expected beat grid.
+  - A note is flagged with a timing fault if its absolute deviation exceeds the configured note-fraction tolerance.
+- **Soft fault, type 2 — Overlap / Legato bleed:**
+  - The previous note is not released before the next sounds.
+  - Tracked via `note_off` events to identify finger release technique.
+- **Recovery window:** A hard fault does not abort the run. The run continues, but a configured window of notes following the fault is **excluded from timing statistics** so that stumble recovery does not contaminate rhythmic evenness measurements.
+
+### 5. Progression Order & Scale Groups
+
+Scales are ordered by **fingering pattern**, not accidental count, to minimize physical pattern memorization.
+
+- **Group 1 — Shared fingering (`1-2-3-1-2-3-4-5`):** C, G, D, A, E, B.
+- **Group 2 — The white-key exception:** F (`1-2-3-4-1-2-3-4`).
+- **Group 3 — Black-key scales:** $B\flat, E\flat, A\flat, D\flat, G\flat$.
+  - Correct diatonic spellings are strictly maintained (e.g. $G\flat$ major is $G\flat, A\flat, B\flat, C\flat, D\flat, E\flat, F, G\flat$).
+
+### 6. Advancement and Recommendation Rules
+
+- **Exercise Tempo Advancement:** 3 consecutive clean runs (zero hard faults, soft faults under threshold) advance the exercise's tempo by the configured increment (e.g. +4 BPM).
+- **Next Scale Recommendation:** The app recommends the first scale that is not yet cleared. A scale is defined as **cleared** when its 1-octave ascending and 1-octave descending exercises have each advanced their tempo at least once beyond the seeded initial tempo.
+- **Advisory, Not Locked:** In v1, all scales remain freely selectable. Recommendations are advisory badges, not access gates.
+
+### 7. Data Persistence Philosophy
+
+- **Store raw MIDI events:** Sequence number, offset in microseconds, message type (`note_on`/`note_off`), MIDI pitch, and velocity are stored in append-only tables.
+- **Derived read models:** `run_assessments` and `exercise_progress` are derived from raw events and can be rebuilt or rescored at any time.
+
+---
+
+## Phase 2 (v2) — Gamified Campaign & Analytics (Direction)
+
+Directional features to be designed and tuned once real session data exists in `piano.db`:
+
+1. **Merit-Based Campaign Trail:**
+   - Turning the advisory scale recommendation into a structured campaign path.
+   - Progression groups become "worlds", scales become "nodes", and nodes unlock only upon clearing requirements.
+2. **Analytical Practice Focus:**
+   - Signed timing deviation analysis (e.g. identifying systematic rushing on specific fingers or thumb-tucks).
+   - Error heatmaps comparing multiple runs over time.
+3. **Dynamic Tempo Variation:**
+   - Exercises with accelerando (speeding up) and ritardando (slowing down) within a single run.
+4. **Spaced Rotation:**
+   - Automatically re-introducing mastered scales into daily practice loops.
+
+---
+
+## Phase 3 (v3) — Interactive Notation & Minor Scales
+
+### 1. Interactive Score (Sheet Music Rendering)
+
+- **Engine:** VexFlow rendering directly onto a canvas/SVG above the keyboard.
+- **Treble Clef Only:** Right-hand v1 exercises reside on the treble staff.
+- **True Diatonic Key Signatures:** Proper key signatures generated from scale definitions.
+- **Live Real-Time Note Feedback:** Notes played during the run are marked dynamically on the staff.
+
+### 2. Note-Location Reading Drills
+
+- Standalone flashcard-style note identification drills.
+- Completely decoupled from timed scale run tables to preserve database schema integrity.
+
+### 3. Minor Scales (Seeded Catalog Extension)
+
+- **Natural, Harmonic, and Melodic Minor** for all 12 keys.
+- **Melodic Minor Asymmetry:** Ascends with raised 6th and 7th degrees, descends as natural minor. (Descending exercise is distinct from the reverse of ascending notes, while fingerings reverse symmetrically).
+- **Fingering Provenance:** All fingerings sourced strictly from `docs/SCALES_FINGERING_REFERENCE.md`.
+
+---
+
+## Out of Scope & Non-Goals
+
+- Two-handed practice or left-hand exercises (deferred to future major versions).
+- Arbitrary polyphonic piece playback or MIDI file importing.
+- Multi-user authentication or cloud database sync.
+- Synthesized or invented fingerings not grounded in the reference chart.
