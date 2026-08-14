@@ -564,6 +564,30 @@ function App() {
             />
             Auto-restart
           </label>
+          <label className="keyboard-toggle">
+            <input
+              type="checkbox"
+              checked={practiceMode}
+              disabled={running}
+              onChange={(event) => togglePracticeMode(event.target.checked)}
+            />
+            Practice mode
+          </label>
+          {practiceMode && (
+            <label className="practice-bpm-control">
+              <span>BPM</span>
+              <input
+                type="number"
+                min={20}
+                max={300}
+                value={practiceTempoBpm}
+                disabled={running}
+                onChange={(event) =>
+                  setPracticeTempoBpm(Number(event.target.value))
+                }
+              />
+            </label>
+          )}
           <label className="volume">
             <span>Click</span>
             <input
@@ -580,8 +604,12 @@ function App() {
           </label>
           <div className="stats-row">
             <div className="stat">
-              <strong>{exercise?.currentTempoBpm ?? '—'}</strong>
-              <span>Current max BPM</span>
+              <strong>
+                {practiceMode
+                  ? practiceTempoBpm
+                  : (exercise?.currentTempoBpm ?? '—')}
+              </strong>
+              <span>{practiceMode ? 'Practice BPM' : 'Target BPM'}</span>
             </div>
             <div className="stat">
               <strong>{exercise?.consecutiveCleanRuns ?? 0}/3</strong>
@@ -819,40 +847,11 @@ function App() {
             />
             Show keyboard during test
           </label>
-          <label className="keyboard-toggle">
-            <input
-              type="checkbox"
-              checked={practiceMode}
-              disabled={running}
-              onChange={(event) => togglePracticeMode(event.target.checked)}
-            />
-            Practice tempo (not scored)
-          </label>
-          {practiceMode && (
-            <input
-              type="number"
-              min={20}
-              max={300}
-              value={practiceTempoBpm}
-              disabled={running}
-              onChange={(event) =>
-                setPracticeTempoBpm(Number(event.target.value))
-              }
-            />
-          )}
         </div>
         {useComputerKeyboard && (
           <p className="dev-tools-note">
             W E T Y U = black keys (A S D ... K) row = white keys from C3 to C4
             keys, on the row above.
-          </p>
-        )}
-        {practiceMode && (
-          <p className="dev-tools-note">
-            Practice tempo: a warm-up aid (docs/SPEC.md, "Goal"), not
-            scaffolding. Runs at the tempo above without saving progress or
-            history. The server's tempo lock (docs/ARCHITECTURE.md) is never
-            bypassed -- practice runs simply aren't submitted.
           </p>
         )}
       </section>

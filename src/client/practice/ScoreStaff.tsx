@@ -62,82 +62,85 @@ export function ScoreStaff({
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const container = containerRef.current
-    if (!container || steps.length === 0) return
+    try {
+      const container = containerRef.current
+      if (!container || steps.length === 0) return
 
-    container.innerHTML = ''
+      container.innerHTML = ''
 
-    const width = Math.max(container.clientWidth || 700, 500)
-    const height = 140
+      const width = Math.max(container.clientWidth || 650, 480)
+      const height = 130
 
-    const renderer = new Renderer(container, Renderer.Backends.SVG)
-    renderer.resize(width, height)
-    const context = renderer.getContext()
+      const renderer = new Renderer(container, Renderer.Backends.SVG)
+      renderer.resize(width, height)
+      const context = renderer.getContext()
 
-    context.setFont('ui-sans-serif, sans-serif', 12)
-    context.setFillStyle('#e7e7e5')
-    context.setStrokeStyle('#666666')
+      context.setFont('ui-sans-serif, sans-serif', 12)
+      context.setFillStyle('#e7e7e5')
+      context.setStrokeStyle('#666666')
 
-    const stave = new Stave(10, 10, width - 20)
-    stave.addClef('treble')
+      const stave = new Stave(10, 0, width - 20)
+      stave.addClef('treble')
 
-    const keySig = scaleSlug ? SCALE_SLUG_TO_KEY_SIG[scaleSlug] : undefined
-    if (keySig) stave.addKeySignature(keySig)
+      const keySig = scaleSlug ? SCALE_SLUG_TO_KEY_SIG[scaleSlug] : undefined
+      if (keySig) stave.addKeySignature(keySig)
 
-    stave.setContext(context).draw()
+      stave.setContext(context).draw()
 
-    const ascending = direction === 'ascending'
-    let octave = 4
-    let previousPitchClass: number | null = null
+      const ascending = direction === 'ascending'
+      let octave = 4
+      let previousPitchClass: number | null = null
 
-    const staveNotes = steps.map((step) => {
-      const pitchClass = PITCH_CLASS_BY_SPELLING[step.noteSpelling] ?? 0
-      if (previousPitchClass !== null) {
-        if (ascending && pitchClass <= previousPitchClass) octave += 1
-        else if (!ascending && pitchClass >= previousPitchClass) octave -= 1
+      const staveNotes: StaveNote[] = []
+      for (const step of steps) {
+        const pitchClass = PITCH_CLASS_BY_SPELLING[step.noteSpelling] ?? 0
+        if (previousPitchClass !== null) {
+          if (ascending && pitchClass <= previousPitchClass) octave += 1
+          else if (!ascending && pitchClass >= previousPitchClass) octave -= 1
+        }
+        previousPitchClass = pitchClass
+
+        const letter = step.noteSpelling.charAt(0).toLowerCase()
+        const accidental =
+          step.noteSpelling.length > 1 ? step.noteSpelling.slice(1) : ''
+        const noteKey = `${letter}${accidental}/${octave}`
+
+        const staveNote = new StaveNote({
+          keys: [noteKey],
+          duration: 'q',
+          clef: 'treble'
+        })
+
+        const isCurrent = activeStepIndex === step.stepIndex
+        if (isCurrent) {
+          staveNote.setStyle({ fillStyle: '#f7d58b', strokeStyle: '#f7d58b' })
+        } else {
+          staveNote.setStyle({ fillStyle: '#e7e7e5', strokeStyle: '#c9c9c6' })
+        }
+
+        const annotation = new Annotation(String(step.fingerNumber))
+          .setVerticalJustification(AnnotationVerticalJustify.BOTTOM)
+          .setFont('ui-sans-serif, sans-serif', 11)
+        if (isCurrent) {
+          annotation.setStyle({ fillStyle: '#f7d58b' })
+        } else {
+          annotation.setStyle({ fillStyle: '#a8a8a5' })
+        }
+        staveNote.addModifier(annotation)
+        staveNotes.push(staveNote)
       }
-      previousPitchClass = pitchClass
 
-      const letter = step.noteSpelling.charAt(0).toLowerCase()
-      const accidental =
-        step.noteSpelling.length > 1 ? step.noteSpelling.slice(1) : ''
-      const noteKey = `${letter}${accidental}/${octave}`
-
-      const staveNote = new StaveNote({
-        keys: [noteKey],
-        duration: 'q',
-        clef: 'treble'
+      const voice = new Voice({
+        numBeats: steps.length,
+        beatValue: 4
       })
+      voice.addTickables(staveNotes)
 
-      const isCurrent = activeStepIndex === step.stepIndex
-      if (isCurrent) {
-        staveNote.setStyle({ fillStyle: '#f7d58b', strokeStyle: '#f7d58b' })
-      } else {
-        staveNote.setStyle({ fillStyle: '#e7e7e5', strokeStyle: '#c9c9c6' })
-      }
-
-      const annotation = new Annotation(
-        String(step.fingerNumber)
-      ).setVerticalJustification(AnnotationVerticalJustify.BOTTOM)
-      annotation.setFont('ui-sans-serif, sans-serif', 11)
-      if (isCurrent) {
-        annotation.setStyle({ fillStyle: '#f7d58b' })
-      } else {
-        annotation.setStyle({ fillStyle: '#a8a8a5' })
-      }
-      staveNote.addModifier(annotation)
-
-      return staveNote
-    })
-
-    const voice = new Voice({
-      numBeats: steps.length,
-      beatValue: 4
-    })
-    voice.addTickables(staveNotes)
-
-    new Formatter().joinVoices([voice]).format([voice], width - 100)
-    voice.draw(context, stave)
+      new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+      voice.draw(context, stave)
+    } catch (error) {
+      console.warn('[ScoreStaff] could not render notation:', error)
+    }
   }, [steps, direction, scaleSlug, activeStepIndex])
 
   return (

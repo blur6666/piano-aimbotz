@@ -367,6 +367,28 @@ button.primary {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.practice-bpm-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font:
+    600 13px ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.practice-bpm-control input[type='number'] {
+  width: 72px;
+  padding: 6px 8px;
+  border: 1px solid var(--accent);
+  background: #232324;
+  color: #f7d58b;
+  font:
+    600 14px ui-sans-serif,
+    system-ui,
+    sans-serif;
+  border-radius: 4px;
+}
 .keyboard-figure {
   margin: 22px 0 14px;
 }
