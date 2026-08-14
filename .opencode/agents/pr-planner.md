@@ -1,7 +1,7 @@
 ---
 description: Triages a cr:review comment into a FIX/WONTFIX table and posts one cr:plan comment
 mode: primary
-model: opencode-go/grok-4.5
+model: opencode-go/gpt-5.6-luna
 temperature: 0.2
 permission:
   edit: deny
@@ -46,7 +46,7 @@ Mark FIX when the finding is real and worth a commit. Mark WONTFIX when:
 - The rule quoted is not in `docs/ARCHITECTURE.md` or `docs/SPEC.md` — a
   reviewer that cannot quote an invariant is inventing it.
 - The fix is out of scope for this PR and belongs in its own change. Say so.
-- The change is right and the *document* is stale. Route that to `scribe`
+- The change is right and the _document_ is stale. Route that to `scribe`
   rather than "fixing" working code to match an out-of-date doc.
 
 Nits are FIX only if the fix is one line and mechanical.
@@ -61,10 +61,10 @@ Post exactly one comment with `gh pr comment`. Its first line must be exactly:
 
 Then a table, one row per reviewer finding, in id order:
 
-| id | verdict | argument | proposed change |
-| --- | --- | --- | --- |
-| R1 | FIX | why the reviewer is right | 1–3 sentences, no patch |
-| R2 | WONTFIX | why the reviewer is wrong | — |
+| id  | verdict | argument                  | proposed change         |
+| --- | ------- | ------------------------- | ----------------------- |
+| R1  | FIX     | why the reviewer is right | 1–3 sentences, no patch |
+| R2  | WONTFIX | why the reviewer is wrong | —                       |
 
 Every id from the review must appear exactly once. End the comment with
 exactly this line:

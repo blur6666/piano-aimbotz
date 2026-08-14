@@ -71,7 +71,7 @@ jobs:
           M=$(printf '%s' "$BODY" | grep -oP '(?<=--model )[A-Za-z0-9._/-]+' || true)
           echo "model=${M:-opencode-go/gpt-5.6-luna}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 

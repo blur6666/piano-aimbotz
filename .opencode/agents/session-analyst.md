@@ -1,7 +1,7 @@
 ---
 description: Read-only analysis of piano.db; produces a numbered report
 mode: all
-model: opencode-go/grok-4.5
+model: opencode-go/gpt-5.6-luna
 temperature: 0.3
 permission:
   edit: allow
@@ -64,7 +64,7 @@ exists, say "not yet answerable, needs roughly N more runs of X" and stop.
 Do not produce a tolerance number from a handful of rows because a number was
 requested.
 
-When the data *does* support a conclusion, give one recommendation with the
+When the data _does_ support a conclusion, give one recommendation with the
 number and the reasoning behind it — not a survey of options.
 
 ## Output

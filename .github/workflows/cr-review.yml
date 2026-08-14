@@ -71,7 +71,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           # Full history so the agent can diff against the base branch.
           fetch-depth: 0
@@ -117,7 +117,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -161,7 +161,7 @@ jobs:
         with:
           # Deliberately a different model family than the reviewer — an agent
           # grading its own findings agrees with itself.
-          model: opencode-go/grok-4.5
+          model: opencode-go/gpt-5.6-luna
           agent: pr-planner
           use_github_token: true
           share: false
