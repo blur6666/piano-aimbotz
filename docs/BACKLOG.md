@@ -6,11 +6,11 @@ Tasks derived directly from [`docs/SPEC.md`](file:///c:/Users/bcint/proj/dev/bak
 
 ## 🎯 Active / Immediate: Phase 1 (v1) Polish & Core UX
 
-- [ ] **[P1-UX] Show live notes played on virtual keyboard when idle**
+- [x] **[P1-UX] Show live notes played on virtual keyboard when idle**
   - Mirror MIDI keypresses and releases on the on-screen virtual keyboard even when no exercise is currently running.
   - Helps the player test their MIDI connection and verify pitch alignment before starting a count-in.
 
-- [ ] **[P1-CORE] Enforce Practice Mode / Manual BPM Progress Isolation**
+- [x] **[P1-CORE] Enforce Practice Mode / Manual BPM Progress Isolation**
   - When the user manually changes tempo or enters Practice Mode, runs must **not** submit scored results or advance progression streaks.
   - Provide a clear UI toggle/indicator ("Practice Mode / Sandbox") so testing and warmups never accidentally mutate server progression data.
 
@@ -23,10 +23,10 @@ Tasks derived directly from [`docs/SPEC.md`](file:///c:/Users/bcint/proj/dev/bak
 
 ### Milestone 3.1 — Interactive Sheet Music Staff (VexFlow)
 
-- [ ] **[V3-SCORE-1] Render exercise notation with VexFlow**
+- [x] **[V3-SCORE-1] Render exercise notation with VexFlow**
   - Draw a treble clef staff directly above the virtual keyboard for the active exercise.
   - Dynamically compute correct diatonic key signatures based on the selected scale rather than scattering individual accidentals.
-- [ ] **[V3-SCORE-2] Real-time note strike feedback on staff**
+- [x] **[V3-SCORE-2] Real-time note strike feedback on staff**
   - Visually highlight notes on the VexFlow staff as they are struck during a run, matching the approximate browser timeline timing before final server assessment arrives.
 
 ### Milestone 3.2 — Minor Scales Catalog Extension
