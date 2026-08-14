@@ -60,6 +60,7 @@
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "marked": "^18.0.9",
+    "playwright": "^1.62.1",
     "prettier": "^3.9.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3",
