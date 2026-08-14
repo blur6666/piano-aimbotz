@@ -23,6 +23,8 @@ import {
 import { RunResult } from './practice/RunResult.js'
 import { Timeline, type LiveNote } from './practice/Timeline.js'
 import { Keyboard } from './practice/Keyboard.js'
+import { midiNoteName } from './midi/format.js'
+import { ScoreStaff } from './practice/ScoreStaff.js'
 import {
   keyboardOctaveCount,
   nearestFullKeyboardPlacement,
@@ -58,6 +60,7 @@ function App() {
   )
   const [inputs, setInputs] = useState<MIDIInput[]>([])
   const [selectedRealInputId, setSelectedRealInputId] = useState('')
+  const [pressedPitches, setPressedPitches] = useState<Set<number>>(new Set())
   const [useComputerKeyboard, setUseComputerKeyboard] = useState(false)
   const [status, setStatus] = useState('')
   const [running, setRunning] = useState(false)
@@ -232,6 +235,55 @@ function App() {
     }
   }, [])
 
+  // Idle MIDI listening: mirrors piano keypresses to on-screen keyboard even when no exercise is active.
+  useEffect(() => {
+    if (running) return
+
+    let disposeKeyboard: (() => void) | null = null
+    let targetInput:
+      | MIDIInput
+      | { onmidimessage: ((message: unknown) => void) | null }
+      | null = null
+
+    if (useComputerKeyboard) {
+      const kb = createKeyboardInput()
+      targetInput = kb.input as unknown as MIDIInput
+      disposeKeyboard = kb.dispose
+    } else if (activeInputId) {
+      targetInput =
+        inputsRef.current.find((input) => input.id === activeInputId) ?? null
+    }
+
+    if (!targetInput) {
+      setPressedPitches(new Set())
+      return
+    }
+
+    targetInput.onmidimessage = (rawMessage: unknown) => {
+      const message = rawMessage as {
+        data?: Uint8Array | number[]
+        timeStamp?: number
+      }
+      if (!message?.data) return
+      const [statusByte, pitch, velocity] = Array.from(message.data)
+      const command = statusByte & 0xf0
+      if (command !== 0x90 && command !== 0x80) return
+      const isNoteOn = command === 0x90 && velocity !== 0
+      setPressedPitches((prev) => {
+        const next = new Set(prev)
+        if (isNoteOn) next.add(pitch)
+        else next.delete(pitch)
+        return next
+      })
+    }
+
+    return () => {
+      if (targetInput) targetInput.onmidimessage = null
+      disposeKeyboard?.()
+      setPressedPitches(new Set())
+    }
+  }, [running, useComputerKeyboard, activeInputId, inputs])
+
   // Space starts a run, or stops the one in flight. Deliberately not a
   // letter: A-K and W/E/T/Y/U are piano keys in computer-keyboard mode.
   useEffect(() => {
@@ -255,6 +307,7 @@ function App() {
     loopingRef.current = false
     setLooping(false)
     abortRef.current?.abort()
+    setPressedPitches(new Set())
   }
 
   async function refreshMidiInputs() {
@@ -323,16 +376,23 @@ function App() {
       input = found
     }
     const tempoBpm = practiceMode ? practiceTempoBpm : exercise.currentTempoBpm
+    const isOffTempo = tempoBpm !== exercise.currentTempoBpm
+    const shouldSkipSubmit = practiceMode || isOffTempo
     const controller = new AbortController()
     abortRef.current = controller
     setOutcome(null)
     setRunning(true)
-    setStatus(practiceMode ? 'Count-in (practice, not saved)' : 'Count-in')
+    setPressedPitches(new Set())
+    setStatus(
+      shouldSkipSubmit
+        ? 'Count-in (practice / sandbox mode, not saved)'
+        : 'Count-in'
+    )
     setRunSchedule(null)
     setLiveNotes([])
     setFinalSteps(null)
     console.info(
-      `[MIDI] run started: ${exercise.label} at ${tempoBpm} BPM${practiceMode ? ' (practice mode)' : ''}`
+      `[MIDI] run started: ${exercise.label} at ${tempoBpm} BPM${shouldSkipSubmit ? ' (practice mode)' : ''}`
     )
     try {
       const result = await runExercise(
@@ -350,16 +410,25 @@ function App() {
           signal: controller.signal,
           onScheduled: setRunSchedule,
           onLiveNote: (event) => {
-            if (event.type !== 'note_on') return
-            setLiveNotes((current) => [
-              ...current,
-              { midiPitch: event.midiPitch, offsetUs: event.offsetUs }
-            ])
+            if (event.type === 'note_on') {
+              setLiveNotes((current) => [
+                ...current,
+                { midiPitch: event.midiPitch, offsetUs: event.offsetUs }
+              ])
+              setPressedPitches((prev) => new Set(prev).add(event.midiPitch))
+            } else {
+              setPressedPitches((prev) => {
+                const next = new Set(prev)
+                next.delete(event.midiPitch)
+                return next
+              })
+            }
           },
-          skipSubmit: practiceMode
+          skipSubmit: shouldSkipSubmit
         }
       )
       setRunning(false)
+      setPressedPitches(new Set())
       if (controller.signal.aborted) {
         setStatus('Stopped. Press Space to start again.')
         return
@@ -537,6 +606,20 @@ function App() {
             )}
           </p>
         )}
+        <div className="status-row">
+          <p className="status" aria-live="polite">
+            {status}
+          </p>
+          {!running && pressedPitches.size > 0 && (
+            <span className="live-note-badge">
+              🎹 {Array.from(pressedPitches).map(midiNoteName).join(', ')}
+            </span>
+          )}
+          {(practiceMode ||
+            (exercise && practiceTempoBpm !== exercise.currentTempoBpm)) && (
+            <span className="sandbox-badge">Sandbox / Practice Mode</span>
+          )}
+        </div>
         {running && beat !== null && <div className="count">{beat}</div>}
         {exercise && (running || finalSteps !== null) && (
           <Timeline
@@ -553,6 +636,18 @@ function App() {
             finalSteps={finalSteps}
           />
         )}
+        {exercise && (
+          <ScoreStaff
+            steps={exercise.steps}
+            direction={exercise.direction}
+            scaleSlug={exercise.scaleSlug}
+            activeStepIndex={
+              running && liveNotes.length > 0
+                ? (liveNotes.length - 1) % exercise.steps.length
+                : null
+            }
+          />
+        )}
         {exercise &&
           keyboardOctaves !== null &&
           (!running || showKeyboardDuringTest) && (
@@ -560,6 +655,7 @@ function App() {
               scaleKeys={keyboardScaleKeys}
               octaves={keyboardOctaves}
               full={landscape}
+              pressedPitches={pressedPitches}
             />
           )}
         {exercise && outcome && !running && (

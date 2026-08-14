@@ -59,12 +59,34 @@ export type KeyboardProps = {
   // keyboard (C2..C7) instead of the compact exercise-span keyboard, and
   // place the scale keys using their absolute keyboard octave indices.
   full?: boolean
+  // MIDI pitches currently pressed (live playback or idle MIDI input).
+  pressedPitches?: ReadonlySet<number>
+}
+
+function isKeyPressed(
+  key: { octave: number; pitchClass: number },
+  full: boolean,
+  pressedPitches?: ReadonlySet<number>
+): boolean {
+  if (!pressedPitches || pressedPitches.size === 0) return false
+  if (full) {
+    const midiPitch = (key.octave + 3) * 12 + key.pitchClass
+    return pressedPitches.has(midiPitch)
+  }
+  const compactPitch = 60 + key.octave * 12 + key.pitchClass
+  if (pressedPitches.has(compactPitch)) return true
+  return Array.from(pressedPitches).some((p) => p % 12 === key.pitchClass)
 }
 
 // Reference keyboard showing the selected exercise on the keys it actually
 // uses, with each step's note and finger labelled beneath its own key.
 // Presentation only -- nothing here feeds scoring.
-export function Keyboard({ scaleKeys, octaves, full = false }: KeyboardProps) {
+export function Keyboard({
+  scaleKeys,
+  octaves,
+  full = false,
+  pressedPitches
+}: KeyboardProps) {
   const whiteKeyWidthPercent = full
     ? 100 / FULL_KEYBOARD_WHITE_KEYS
     : 100 / (octaves * WHITE_KEYS_PER_OCTAVE)
@@ -102,33 +124,43 @@ export function Keyboard({ scaleKeys, octaves, full = false }: KeyboardProps) {
     <div className="keyboard-figure">
       <div className="keyboard" aria-hidden="true">
         <div className="keyboard-white-keys">
-          {whiteKeys.map((key) => (
+          {whiteKeys.map((key) => {
+            const isHighlighted = highlighted.has(
+              `${key.octave}:${key.pitchClass}`
+            )
+            const pressed = isKeyPressed(key, full, pressedPitches)
+            return (
+              <div
+                key={`${key.note}${key.octave}`}
+                className={
+                  'keyboard-key keyboard-key-white' +
+                  (isHighlighted ? ' keyboard-key-highlighted' : '') +
+                  (pressed ? ' keyboard-key-pressed' : '')
+                }
+              />
+            )
+          })}
+        </div>
+        {blackKeys.map((key) => {
+          const isHighlighted = highlighted.has(
+            `${key.octave}:${key.pitchClass}`
+          )
+          const pressed = isKeyPressed(key, full, pressedPitches)
+          return (
             <div
               key={`${key.note}${key.octave}`}
               className={
-                'keyboard-key keyboard-key-white' +
-                (highlighted.has(`${key.octave}:${key.pitchClass}`)
-                  ? ' keyboard-key-highlighted'
-                  : '')
+                'keyboard-key keyboard-key-black' +
+                (isHighlighted ? ' keyboard-key-highlighted' : '') +
+                (pressed ? ' keyboard-key-pressed' : '')
               }
+              style={{
+                left: `${(key.afterWhiteIndex + 1) * whiteKeyWidthPercent}%`,
+                width: `${blackKeyWidthPercent}%`
+              }}
             />
-          ))}
-        </div>
-        {blackKeys.map((key) => (
-          <div
-            key={`${key.note}${key.octave}`}
-            className={
-              'keyboard-key keyboard-key-black' +
-              (highlighted.has(`${key.octave}:${key.pitchClass}`)
-                ? ' keyboard-key-highlighted'
-                : '')
-            }
-            style={{
-              left: `${(key.afterWhiteIndex + 1) * whiteKeyWidthPercent}%`,
-              width: `${blackKeyWidthPercent}%`
-            }}
-          />
-        ))}
+          )
+        })}
       </div>
       <div className="keyboard-labels">
         {scaleKeys.map((key) => {
